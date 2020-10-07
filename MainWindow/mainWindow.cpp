@@ -7,6 +7,8 @@
 #include "QStatusBar"
 #include "QtConcurrent"
 #include <QtConcurrent/qtconcurrentrun.h>
+#include "QSlider"
+#include "QDoubleSpinBox"
 
 // vtk
 #include "QVTKWidget.h"
@@ -51,11 +53,12 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// signal slot connections
 	connect(ui->pushButtonSurface, &QPushButton::clicked, this, &MainWindow::slotBrowseSurface);
 	connect(ui->pushButtonCenterline, &QPushButton::clicked, this, &MainWindow::slotBrowseCenterline);
+	connect(ui->horizontalSliderOpacity, &QSlider::valueChanged, this, &MainWindow::slotSliderOpacityChanged);
+	connect(ui->doubleSpinBoxOpacity, QOverload<double>::of(&QDoubleSpinBox::valueChanged),this,&MainWindow::slotSpinBoxOpacityChanged);
 
 	// shortcut, remove for release
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-
 };
 
 MainWindow::~MainWindow()
@@ -113,6 +116,21 @@ void MainWindow::slotBrowseCenterline()
 	m_ioWatcher->setFuture(future);
 }
 
+void MainWindow::slotSliderOpacityChanged()
+{
+	double opacity = ui->horizontalSliderOpacity->value()*1.0 / 100.;
+	ui->doubleSpinBoxOpacity->setValue(opacity);
+	m_surfaceActor->GetProperty()->SetOpacity(opacity);
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSpinBoxOpacityChanged()
+{
+	ui->horizontalSliderOpacity->setValue(ui->doubleSpinBoxOpacity->value()* 100);
+	m_surfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::slotExit()
 {
 	qApp->exit();
@@ -132,6 +150,7 @@ void MainWindow::renderSurface()
 	}
 
 	m_surfaceMapper->SetInputData(m_io->GetSurface());
+	m_centerlineActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
 
 	ui->qvtkWidget->update();
 }

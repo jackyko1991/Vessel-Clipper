@@ -32,6 +32,8 @@ public slots:
 	virtual void slotExit();
 	void slotBrowseSurface();
 	void slotBrowseCenterline();
+	void slotSliderOpacityChanged();
+	void slotSpinBoxOpacityChanged();
 
 private slots:
 	void readFileComplete();
