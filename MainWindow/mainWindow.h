@@ -13,6 +13,9 @@
 #include <vtkRenderer.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkActor.h>
+#include "vtkSphereSource.h"
+#include <vtkCubeSource.h>
+#include <vtkCylinderSource.h>
 
 namespace Ui {
 	class MainWindow;
@@ -34,6 +37,17 @@ public slots:
 	void slotBrowseCenterline();
 	void slotSliderOpacityChanged();
 	void slotSpinBoxOpacityChanged();
+	void slotCurrentPickingPoint();
+	void slotSetFirstBifurcation();
+	void slotAutoLocateFirstBifurcation();
+	void slotBoundChanged();
+	void slotSetClipper();
+	void slotSliderSizeChanged();
+	void slotSpinBoxSizeChanged();
+	void slotSliderThicknessChanged();
+	void slotSpinBoxThicknessChanged();
+	void slotSliderRotateChanged();
+	void slotSpinBoxRotateChanged();
 
 private slots:
 	void readFileComplete();
@@ -43,7 +57,11 @@ private:
 	void enableUI(bool);
 	void renderSurface();
 	void renderCenterline();
+	void renderFirstBifurcationPoint();
 	void updateCenterlineDataTable();
+	void createFirstBifurationPoint();
+	void createCurrentPickingPoint();
+	void createClipper();
 
 	IO* m_io;
 
@@ -59,6 +77,21 @@ private:
 	vtkSmartPointer<vtkPolyDataMapper> m_centerlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	vtkSmartPointer<vtkActor> m_surfaceActor = vtkSmartPointer<vtkActor>::New();
 	vtkSmartPointer<vtkActor> m_centerlineActor = vtkSmartPointer<vtkActor>::New();
+
+	// first bifurcation point
+	vtkSmartPointer<vtkPolyDataMapper> m_firstBifurcationMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_firstBifurcationActor = vtkSmartPointer<vtkActor>::New();
+	vtkSmartPointer<vtkSphereSource> m_firstBifurcationSphereSource = vtkSmartPointer<vtkSphereSource>::New();
+
+	// current picking point
+	vtkSmartPointer<vtkPolyDataMapper> m_currentPickingMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_currentPickingActor = vtkSmartPointer<vtkActor>::New();
+	vtkSmartPointer<vtkSphereSource> m_currentPickingSphereSource = vtkSmartPointer<vtkSphereSource>::New();
+
+	// clipping box
+	vtkSmartPointer<vtkPolyDataMapper> m_clipperMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_clipperActor = vtkSmartPointer<vtkActor>::New();
+	vtkSmartPointer<vtkPolyData> m_clipper = vtkSmartPointer<vtkPolyData>::New();
 };
 
 #endif

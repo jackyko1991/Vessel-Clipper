@@ -5,6 +5,11 @@
 #include "vtkSTLReader.h"
 #include "vtkPolyDataReader.h"
 #include "observe_error.h"
+#include "vtkThreshold.h"
+#include "vtkPointData.h"
+#include "vtkCellData.h"
+#include "vtkDataArray.h"
+#include "vtkUnstructuredGrid.h"
 
 IO::IO(QObject* parent)
 {
@@ -145,6 +150,8 @@ bool IO::ReadCenterline()
 			emit centerlineFileReadStatus(0);
 		}
 	}
+
+	this->AutoLocateFirstBifurcationPoint();
 	return 0;
 }
 
@@ -156,6 +163,48 @@ vtkPolyData * IO::GetSurface()
 vtkPolyData * IO::GetCenterline()
 {
 	return m_centerline;
+}
+
+void IO::SetCenterlineFirstBifurcationPointId(int id)
+{
+	m_centerlineFirstBifurcationPointId = id;
+}
+
+int IO::GetCenterlineFirstBifurcationPointId()
+{
+	return m_centerlineFirstBifurcationPointId;
+}
+
+void IO::AutoLocateFirstBifurcationPoint()
+{
+	vtkDataArray* groupids = m_centerline->GetCellData()->GetArray("GroupIds");
+
+	if (m_centerline->GetNumberOfPoints() == 0 || groupids==nullptr)
+		return;
+
+	vtkSmartPointer<vtkThreshold> splitter = vtkSmartPointer<vtkThreshold>::New();
+	splitter->SetInputData(m_centerline);
+	splitter->ThresholdBetween(0, 0);
+	splitter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "GroupIds");
+	splitter->Update();
+	vtkSmartPointer<vtkUnstructuredGrid> mainBranch = splitter->GetOutput();
+
+	double maxAbsc = 0;
+
+	for (int i = 0; i < mainBranch->GetNumberOfPoints(); i++)
+	{
+		vtkDataArray* absc_array = mainBranch->GetPointData()->GetArray("Abscissas");
+		if (absc_array == nullptr)
+			return;
+		double absc = absc_array->GetComponent(i, 0);
+		if (absc > maxAbsc)
+		{
+			maxAbsc = absc;
+			m_centerlineFirstBifurcationPointId = i;
+		}
+	}
+
+	std::cout << "Auto locate first bifucation point ok" << std::endl;
 }
 
 

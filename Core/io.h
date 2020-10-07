@@ -21,9 +21,14 @@ public:
 	bool ReadSurface();
 	bool ReadCenterline();
 	vtkPolyData* GetSurface();
+	void SetSurface(vtkPolyData*);
 	vtkPolyData* GetCenterline();
+	void SetCenterline(vtkPolyData*);
 	vtkPolyData* GetOriginalSurface();
 	vtkPolyData* GetOriginalCenterline();
+	void SetCenterlineFirstBifurcationPointId(int);
+	int GetCenterlineFirstBifurcationPointId();
+	void AutoLocateFirstBifurcationPoint();
 
 signals:
 	// 0 for success, 1 for fail
@@ -38,7 +43,8 @@ private:
 	vtkSmartPointer<vtkPolyData> m_original_centerline = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
-
+	
+	int m_centerlineFirstBifurcationPointId = 0;
 };
 
 #endif // ! IO_H
