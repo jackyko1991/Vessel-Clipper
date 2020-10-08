@@ -10,6 +10,8 @@
 #include "vtkSmartPointer.h"
 #include "vtkPolyData.h"
 
+#include "boundaryCaps.h"
+
 class IO : public QObject
 {
 	Q_OBJECT
@@ -35,6 +37,10 @@ public:
 	QVector<double> GetCenterlineFirstBifurcationPoint();
 	void AutoLocateFirstBifurcationPoint();
 	int GetCenterlineFirstBifurcationPointId();
+	void AddBoundaryCap(BoundaryCap);
+	void RemoveBoundaryCap(int);
+	void RemoveAllBoundaryCaps();
+	QList<BoundaryCap> GetBoundarCaps();
 
 signals:
 	// 0 for success, 1 for fail
@@ -48,11 +54,13 @@ private:
 	QFileInfo m_centerlineFile;
 	void updateCenterlineFirstBifurcationPointId();
 	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
+	QList<BoundaryCap> m_boundaryCaps;
 
 	vtkSmartPointer<vtkPolyData> m_original_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_original_centerline = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
+
 	
 	int m_centerlineFirstBifurcationPointId = 0;
 };

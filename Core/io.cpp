@@ -374,6 +374,20 @@ int IO::GetCenterlineFirstBifurcationPointId()
 	return m_centerlineFirstBifurcationPointId;
 }
 
+void IO::AddBoundaryCap(BoundaryCap boundaryCap)
+{
+	m_boundaryCaps.append(boundaryCap);
+}
+
+void IO::RemoveAllBoundaryCaps()
+{
+	this->m_boundaryCaps.clear();
+}
+
+QList<BoundaryCap> IO::GetBoundarCaps()
+{
+	return m_boundaryCaps;
+}
 
 void IO::SetSurfacePath(QString path)
 {

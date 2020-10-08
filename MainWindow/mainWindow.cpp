@@ -25,6 +25,11 @@
 #include "vtkClipPolyData.h"
 #include "vtkConnectivityFilter.h"
 #include "vtkKdTreePointLocator.h"
+#include "vtkFeatureEdges.h"
+#include "vtkStripper.h"
+#include "vtkAppendPolyData.h"
+#include "vtkThreshold.h"
+#include "vtkGeometryFilter.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -94,7 +99,9 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonResetSurface, &QPushButton::clicked, this, &MainWindow::slotResetSurface);
 	connect(ui->pushButtonResetCenterline, &QPushButton::clicked, this, &MainWindow::slotResetCenterline);
 	connect(ui->pushButtonSaveSurface, &QPushButton::clicked, this, &MainWindow::slotSaveSurface);
-	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+	connect(ui->pushButtonCapping, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
+	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
+	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 
 	// shortcut, remove for release
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
@@ -124,7 +131,7 @@ void MainWindow::slotBrowseSurface()
 
 	// Instantiate the watcher to unlock
 	m_ioWatcher = new QFutureWatcher<bool>;
-	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readFileComplete()));
+	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readSurfaceFileComplete()));
 
 	// use QtConcurrent to run the read file on a new thread;
 	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadSurface);	
@@ -149,7 +156,7 @@ void MainWindow::slotBrowseCenterline()
 
 	// Instantiate the watcher to unlock
 	m_ioWatcher = new QFutureWatcher<bool>;
-	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readFileComplete()));
+	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readCenterlineFileComplete()));
 
 	// use QtConcurrent to run the read file on a new thread;
 	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadCenterline);
@@ -330,6 +337,77 @@ void MainWindow::slotSaveCenterline()
 	m_io->WriteSurface(fileName);
 }
 
+void MainWindow::slotSurfaceCapping()
+{
+	std::cout << "111" << std::endl;
+
+	// remove all old data
+	m_io->RemoveAllBoundaryCaps();
+
+	// extract feature edges
+	vtkSmartPointer<vtkFeatureEdges> boundaryEdges = vtkSmartPointer<vtkFeatureEdges>::New();
+	boundaryEdges->SetInputData(m_io->GetSurface());
+	boundaryEdges->BoundaryEdgesOn();
+	boundaryEdges->FeatureEdgesOff();
+	boundaryEdges->NonManifoldEdgesOff();
+	boundaryEdges->ManifoldEdgesOff();
+	boundaryEdges->Update();
+
+	vtkSmartPointer<vtkStripper> boundaryStrips = vtkSmartPointer<vtkStripper>::New();
+	boundaryStrips->SetInputData(boundaryEdges->GetOutput());
+	boundaryStrips->Update();
+
+	// change polyline to polygons
+	vtkSmartPointer<vtkPolyData> boundaryPoly = vtkSmartPointer<vtkPolyData> ::New();
+	boundaryPoly->SetPoints(boundaryStrips->GetOutput()->GetPoints());
+	boundaryPoly->SetPolys(boundaryStrips->GetOutput()->GetLines());
+
+	// connectivity to separate surfaces
+	vtkSmartPointer<vtkConnectivityFilter> connectFilter = vtkSmartPointer<vtkConnectivityFilter>::New();
+	connectFilter->SetExtractionModeToAllRegions();
+	connectFilter->SetInputData(boundaryPoly);
+	connectFilter->Update();
+
+	std::cout << "222" << std::endl;
+
+	// loop over the caps
+	for (int i = 0; i < connectFilter->GetNumberOfExtractedRegions(); i++)
+	{
+		// extract isolated surface
+		vtkSmartPointer<vtkThreshold> thresholdFilter = vtkSmartPointer<vtkThreshold>::New();
+		thresholdFilter->SetInputData(connectFilter->GetOutput());
+		thresholdFilter->ThresholdBetween(i, i);
+		thresholdFilter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "RegionId");
+		thresholdFilter->Update();
+
+		vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+		geomFilter->SetInputConnection(thresholdFilter->GetOutputPort());
+		geomFilter->Update();
+
+		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
+		cap_poly->DeepCopy(geomFilter->GetOutput());
+
+		// inject into io database
+		BoundaryCap bc;
+		bc.polydata = boundaryPoly;
+		m_io->AddBoundaryCap(bc);
+	}
+
+
+	std::cout << "333" << std::endl;
+
+	// render
+	this->renderBoundaryCaps();
+}
+
+void MainWindow::slotSaveDomain()
+{
+}
+
+void MainWindow::slotRemoveCap()
+{
+}
+
 void MainWindow::slotExit()
 {
 	qApp->exit();
@@ -338,6 +416,7 @@ void MainWindow::slotExit()
 void MainWindow::enableUI(bool enable)
 {
 	ui->pushButtonSurface->setEnabled(enable);
+	ui->pushButtonCenterline->setEnabled(enable);
 }
 
 void MainWindow::renderSurface()
@@ -562,7 +641,7 @@ void MainWindow::clip(int direction)
 		clipper->SetClipFunction(clipFunction);
 	}
 
-	m_clipTransform->Print(std::cout);
+	//m_clipTransform->Print(std::cout);
 
 	// clip surface
 	clipper->SetInputData(m_io->GetSurface());
@@ -577,11 +656,11 @@ void MainWindow::clip(int direction)
 	bif_point[1] = m_io->GetCenterlineFirstBifurcationPoint()[1];
 	bif_point[2] = m_io->GetCenterlineFirstBifurcationPoint()[2];
 	
-	std::cout << "before clip: " <<
-		bif_point[0] << ", " <<
-		bif_point[1] << ", " <<
-		bif_point[2] << ", " <<
-		std::endl;
+	//std::cout << "before clip: " <<
+	//	bif_point[0] << ", " <<
+	//	bif_point[1] << ", " <<
+	//	bif_point[2] << ", " <<
+	//	std::endl;
 
 	// clip centerline
 	clipper->SetInputData(m_io->GetCenterline());
@@ -590,11 +669,11 @@ void MainWindow::clip(int direction)
 	connectedFilter->Update();
 	m_io->GetCenterline()->DeepCopy(connectedFilter->GetOutput());
 
-	std::cout << "after clip: " <<
-		bif_point[0] << ", " <<
-		bif_point[1] << ", " <<
-		bif_point[2] << ", " <<
-		std::endl;
+	//std::cout << "after clip: " <<
+	//	bif_point[0] << ", " <<
+	//	bif_point[1] << ", " <<
+	//	bif_point[2] << ", " <<
+	//	std::endl;
 
 	m_io->SetCenterlineFirstBifurcationPoint(bif_point);
 	this->renderFirstBifurcationPoint();
@@ -603,12 +682,78 @@ void MainWindow::clip(int direction)
 	ui->qvtkWidget->update();
 }
 
-void MainWindow::readFileComplete()
+void MainWindow::renderBoundaryCaps()
+{
+	std::cout << "aaa" << std::endl;
+
+	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
+
+
+	// remove all previous actors from renderer first
+	for (int i = 0; i < m_boundaryCapActors.size(); i++)
+	{
+		m_renderer->RemoveActor(m_boundaryCapActors.at(i));
+	}
+	m_boundaryCapActors.clear();
+
+	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
+
+	std::cout << "bbb" << std::endl;
+
+	for (int i =0; i < m_io->GetBoundarCaps().size();i++)
+	{
+		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+		mapper->SetInputData(m_io->GetBoundarCaps().at(i).polydata);
+		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+		actor->SetMapper(mapper);
+		actor->GetProperty()->SetColor(94 / 255.0, 255 / 255.0, 145 / 255.0);
+		actor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+		m_boundaryCapActors.append(actor);
+		m_renderer->AddActor(actor);
+	}
+
+	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
+
+
+	std::cout << "ccc" << std::endl;
+
+	// set capper to invisible
+	m_clipperActor->VisibilityOff();
+
+	std::cout << "ddd" << std::endl;
+
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::readSurfaceFileComplete()
 {
 	if (!m_ioWatcher->future().result())
 	{
-		m_statusLabel->setText("Loading file complete");
+		m_statusLabel->setText("Loading surface file complete");
 		this->renderSurface();
+
+		m_renderer->ResetCamera();
+		this->updateCenterlineDataTable();
+	}
+	else
+	{
+		m_statusLabel->setText("Loading surface file fail");
+	}
+
+	m_statusProgressBar->setValue(100);
+
+	// unlock ui
+	this->enableUI(true);
+
+	delete m_ioWatcher;
+}
+
+void MainWindow::readCenterlineFileComplete()
+{
+	if (!m_ioWatcher->future().result())
+	{
+		m_statusLabel->setText("Loading centerline file complete");
 		this->renderCenterline();
 		this->renderFirstBifurcationPoint();
 
@@ -617,7 +762,7 @@ void MainWindow::readFileComplete()
 	}
 	else
 	{
-		m_statusLabel->setText("Loading file fail");
+		m_statusLabel->setText("Loading centerline file fail");
 	}
 
 	m_statusProgressBar->setValue(100);

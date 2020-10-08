@@ -3,6 +3,7 @@
 
 #include "ui_mainWindow.h"
 #include "io.h"
+#include "boundaryCaps.h"
 
 // qt
 #include <QMainWindow>
@@ -54,9 +55,13 @@ public slots:
 	void slotResetCenterline();
 	void slotSaveSurface();
 	void slotSaveCenterline();
+	void slotSurfaceCapping();
+	void slotSaveDomain();
+	void slotRemoveCap();
 
 private slots:
-	void readFileComplete();
+	void readSurfaceFileComplete();
+	void readCenterlineFileComplete();
 
 private:
 	Ui::MainWindow *ui;
@@ -69,6 +74,7 @@ private:
 	void createCurrentPickingPoint();
 	void createClipper();
 	void clip(int);
+	void renderBoundaryCaps();
 
 	IO* m_io;
 
@@ -104,6 +110,8 @@ private:
 	int m_clppingPointId = 0;
 	vtkSmartPointer<vtkTransform> m_clipTransform = vtkSmartPointer<vtkTransform>::New();
 
+	// boundary caps
+	QList<vtkActor*> m_boundaryCapActors;
 };
 
 #endif
