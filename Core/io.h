@@ -4,6 +4,7 @@
 // qt
 #include <QObject>
 #include <QFileInfo>
+#include <QVector>
 
 // vtk
 #include "vtkSmartPointer.h"
@@ -18,26 +19,35 @@ public:
 	~IO();
 	void SetSurfacePath(QString path);
 	void SetCenterlinePath(QString path);
+	void SetWriteSurfacePath(QString path);
+	void SetWriteCenterlinePath(QString path);
 	bool ReadSurface();
 	bool ReadCenterline();
+	bool WriteSurface(QString);
+	bool WriteCenterline(QString);
 	vtkPolyData* GetSurface();
 	void SetSurface(vtkPolyData*);
 	vtkPolyData* GetCenterline();
 	void SetCenterline(vtkPolyData*);
 	vtkPolyData* GetOriginalSurface();
 	vtkPolyData* GetOriginalCenterline();
-	void SetCenterlineFirstBifurcationPointId(int);
-	int GetCenterlineFirstBifurcationPointId();
+	void SetCenterlineFirstBifurcationPoint(QVector<double>);
+	QVector<double> GetCenterlineFirstBifurcationPoint();
 	void AutoLocateFirstBifurcationPoint();
+	int GetCenterlineFirstBifurcationPointId();
 
 signals:
 	// 0 for success, 1 for fail
 	void surfaceFileReadStatus(bool);
 	void centerlineFileReadStatus(bool);
+	void surfaceFileWriteStatus(bool);
+	void centerlineFileWriteStatus(bool);
 
 private:
 	QFileInfo m_surfaceFile;
 	QFileInfo m_centerlineFile;
+	void updateCenterlineFirstBifurcationPointId();
+	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
 
 	vtkSmartPointer<vtkPolyData> m_original_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_original_centerline = vtkSmartPointer<vtkPolyData>::New();

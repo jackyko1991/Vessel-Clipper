@@ -4,19 +4,25 @@
 #include "vtkXMLPolyDataReader.h"
 #include "vtkSTLReader.h"
 #include "vtkPolyDataReader.h"
+#include "vtkXMLPolyDataWriter.h"
+#include "vtkSTLWriter.h"
+#include "vtkPolyDataWriter.h"
 #include "observe_error.h"
 #include "vtkThreshold.h"
 #include "vtkPointData.h"
 #include "vtkCellData.h"
 #include "vtkDataArray.h"
 #include "vtkUnstructuredGrid.h"
+#include "vtkKdTreePointLocator.h"
 
 IO::IO(QObject* parent)
 {
+
 }
 
 IO::~IO()
 {
+
 }
 
 bool IO::ReadSurface()
@@ -155,9 +161,120 @@ bool IO::ReadCenterline()
 	return 0;
 }
 
+bool IO::WriteSurface(QString path)
+{
+	QFileInfo m_saveSurfaceFile(path);
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_saveSurfaceFile.suffix() == "vtp" || m_saveSurfaceFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writer->SetFileName(m_saveSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_surface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit surfaceFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit surfaceFileReadStatus(0);
+		}
+	}
+	else if (m_saveSurfaceFile.suffix() == "stl" || m_saveSurfaceFile.suffix() == "STL")
+	{
+		vtkSmartPointer<vtkSTLWriter> writer = vtkSmartPointer<vtkSTLWriter>::New();
+		writer->SetFileName(m_saveSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_surface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit surfaceFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit surfaceFileWriteStatus(0);
+		}
+	}
+	else if (m_saveSurfaceFile.suffix() == "vtk" || m_saveSurfaceFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+		writer->SetFileName(m_saveSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_surface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit surfaceFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit surfaceFileWriteStatus(0);
+		}
+	}
+
+
+	return 0;
+}
+
+bool IO::WriteCenterline(QString path)
+{
+	QFileInfo m_saveCenterlineFile(path);
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_saveCenterlineFile.suffix() == "vtp" || m_saveCenterlineFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writer->SetFileName(m_saveCenterlineFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_centerline);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit centerlineFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit centerlineFileWriteStatus(0);
+		}
+	}
+	else if (m_saveCenterlineFile.suffix() == "vtk" || m_saveCenterlineFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+		writer->SetFileName(m_saveCenterlineFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_centerline);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit centerlineFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit centerlineFileWriteStatus(0);
+		}
+	}
+
+	return 0;
+}
+
 vtkPolyData * IO::GetSurface()
 {
 	return m_surface;
+}
+
+void IO::SetSurface(vtkPolyData * polydata)
+{
+	m_surface->DeepCopy(polydata);
 }
 
 vtkPolyData * IO::GetCenterline()
@@ -165,14 +282,57 @@ vtkPolyData * IO::GetCenterline()
 	return m_centerline;
 }
 
-void IO::SetCenterlineFirstBifurcationPointId(int id)
+void IO::SetCenterline(vtkPolyData *polydata)
 {
-	m_centerlineFirstBifurcationPointId = id;
+	m_centerline->DeepCopy(polydata);
 }
 
-int IO::GetCenterlineFirstBifurcationPointId()
+vtkPolyData * IO::GetOriginalSurface()
 {
-	return m_centerlineFirstBifurcationPointId;
+	return m_original_surface;
+}
+
+vtkPolyData * IO::GetOriginalCenterline()
+{
+	return m_original_centerline;
+}
+
+void IO::SetCenterlineFirstBifurcationPoint(QVector<double> point)
+{
+	m_firstBifurcationPoint[0] = point[0];
+	m_firstBifurcationPoint[1] = point[1];
+	m_firstBifurcationPoint[2] = point[2];
+
+	updateCenterlineFirstBifurcationPointId();
+}
+
+QVector<double> IO::GetCenterlineFirstBifurcationPoint()
+{
+	return m_firstBifurcationPoint;
+}
+
+void IO::updateCenterlineFirstBifurcationPointId()
+{
+	// update first bifurcation point id
+	vtkSmartPointer<vtkKdTreePointLocator> kdTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
+	kdTree->SetDataSet(m_centerline);
+	kdTree->Update();
+
+	double point[3] = { m_firstBifurcationPoint[0], m_firstBifurcationPoint[1], m_firstBifurcationPoint[2] };
+	int id = kdTree->FindClosestPoint(point);
+
+	std::cout << "before update id: " <<
+		m_firstBifurcationPoint[0] << ", " <<
+		m_firstBifurcationPoint[1] << ", " <<
+		m_firstBifurcationPoint[2] << ", " <<
+		std::endl;
+	m_centerlineFirstBifurcationPointId = id;
+
+	std::cout <<"after update id: "<< 
+		m_firstBifurcationPoint[0] << ", " <<
+		m_firstBifurcationPoint[1] << ", " <<
+		m_firstBifurcationPoint[2] << ", " <<
+		std::endl;
 }
 
 void IO::AutoLocateFirstBifurcationPoint()
@@ -204,7 +364,14 @@ void IO::AutoLocateFirstBifurcationPoint()
 		}
 	}
 
-	std::cout << "Auto locate first bifucation point ok" << std::endl;
+	m_firstBifurcationPoint[0] = m_centerline->GetPoint(m_centerlineFirstBifurcationPointId)[0];
+	m_firstBifurcationPoint[1] = m_centerline->GetPoint(m_centerlineFirstBifurcationPointId)[1];
+	m_firstBifurcationPoint[2] = m_centerline->GetPoint(m_centerlineFirstBifurcationPointId)[2];
+}
+
+int IO::GetCenterlineFirstBifurcationPointId()
+{
+	return m_centerlineFirstBifurcationPointId;
 }
 
 

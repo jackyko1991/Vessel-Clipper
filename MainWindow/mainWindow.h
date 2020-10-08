@@ -48,6 +48,12 @@ public slots:
 	void slotSpinBoxThicknessChanged();
 	void slotSliderRotateChanged();
 	void slotSpinBoxRotateChanged();
+	void slotClipProximal();
+	void slotClipDistal();
+	void slotResetSurface();
+	void slotResetCenterline();
+	void slotSaveSurface();
+	void slotSaveCenterline();
 
 private slots:
 	void readFileComplete();
@@ -62,6 +68,7 @@ private:
 	void createFirstBifurationPoint();
 	void createCurrentPickingPoint();
 	void createClipper();
+	void clip(int);
 
 	IO* m_io;
 
@@ -92,6 +99,11 @@ private:
 	vtkSmartPointer<vtkPolyDataMapper> m_clipperMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	vtkSmartPointer<vtkActor> m_clipperActor = vtkSmartPointer<vtkActor>::New();
 	vtkSmartPointer<vtkPolyData> m_clipper = vtkSmartPointer<vtkPolyData>::New();
+
+	// clip transform
+	int m_clppingPointId = 0;
+	vtkSmartPointer<vtkTransform> m_clipTransform = vtkSmartPointer<vtkTransform>::New();
+
 };
 
 #endif

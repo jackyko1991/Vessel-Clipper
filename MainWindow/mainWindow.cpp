@@ -20,6 +20,11 @@
 #include "vtkDataArray.h"
 #include "vtkTransform.h"
 #include "vtkTransformPolyDataFilter.h"
+#include "vtkBoxWidget.h"
+#include "vtkPlanes.h"
+#include "vtkClipPolyData.h"
+#include "vtkConnectivityFilter.h"
+#include "vtkKdTreePointLocator.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -84,6 +89,12 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->doubleSpinBoxThickness, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxThicknessChanged);
 	connect(ui->horizontalSliderRotate, &QSlider::valueChanged, this, &MainWindow::slotSliderRotateChanged);
 	connect(ui->doubleSpinBoxRotate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxRotateChanged);
+	connect(ui->pushButtonClipProximal, &QPushButton::clicked, this, &MainWindow::slotClipProximal);
+	connect(ui->pushButtonClipDistal, &QPushButton::clicked, this, &MainWindow::slotClipDistal);
+	connect(ui->pushButtonResetSurface, &QPushButton::clicked, this, &MainWindow::slotResetSurface);
+	connect(ui->pushButtonResetCenterline, &QPushButton::clicked, this, &MainWindow::slotResetCenterline);
+	connect(ui->pushButtonSaveSurface, &QPushButton::clicked, this, &MainWindow::slotSaveSurface);
+	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 
 	// shortcut, remove for release
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
@@ -123,7 +134,7 @@ void MainWindow::slotBrowseSurface()
 void MainWindow::slotBrowseCenterline()
 {
 	QString fileName = QFileDialog::getOpenFileName(this,
-		tr("Open Centerline File"), ui->lineEditCenterline->text(), tr("Centerline Files (*.stl *.vtk *.vtp)"));
+		tr("Open Centerline File"), ui->lineEditCenterline->text(), tr("Centerline Files (*.vtk *.vtp)"));
 
 	if (fileName.isNull())
 		return;
@@ -174,15 +185,25 @@ void MainWindow::slotSetFirstBifurcation()
 	int current_row = ui->tableWidgetCenterline->currentRow();
 	if (current_row < 0)
 		return;
-	m_io->SetCenterlineFirstBifurcationPointId(current_row);
+
+	QVector<double> point(3);
+	point[0] = m_io->GetCenterline()->GetPoint(current_row)[0];
+	point[1] = m_io->GetCenterline()->GetPoint(current_row)[1];
+	point[2] = m_io->GetCenterline()->GetPoint(current_row)[2];
+
+	m_io->SetCenterlineFirstBifurcationPoint(point);
+	
 	this->updateCenterlineDataTable();
-	//ui->tableWidgetCenterline->selectRow(current_row);
+	ui->tableWidgetCenterline->selectRow(current_row);
 	m_currentPickingActor->VisibilityOff();
+
 	this->renderFirstBifurcationPoint();
 }
 
 void MainWindow::slotAutoLocateFirstBifurcation()
 {
+	if (m_io->GetCenterline()->GetNumberOfPoints() == 0)
+		return;
 	m_io->AutoLocateFirstBifurcationPoint();
 	this->renderFirstBifurcationPoint();
 	this->updateCenterlineDataTable();
@@ -200,18 +221,20 @@ void MainWindow::slotSetClipper()
 	if (currentPickingId < 0)
 		return;
 
+	m_clppingPointId = currentPickingId;
+
 	// centerline tangent
 	double* tangent = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent")->GetTuple(currentPickingId);
 
-	vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-	transform->Translate(m_io->GetCenterline()->GetPoint(currentPickingId));
-	transform->RotateWXYZ(ui->doubleSpinBoxRotate->value(), tangent[0], tangent[1], tangent[2]);
-	double w = atan(sqrt(pow(tangent[0],2) + pow(tangent[1],2)) / tangent[2]) * 180 / 3.14;
-	transform->RotateWXYZ(w,-tangent[1],tangent[0],0);
-	transform->Scale(ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxThickness->value());
+	m_clipTransform->Identity();
+	m_clipTransform->Translate(m_io->GetCenterline()->GetPoint(currentPickingId));
+	m_clipTransform->RotateWXYZ(ui->doubleSpinBoxRotate->value(), tangent[0], tangent[1], tangent[2]);
+	double w = atan(sqrt(pow(tangent[0], 2) + pow(tangent[1], 2)) / tangent[2]) * 180 / 3.14;
+	m_clipTransform->RotateWXYZ(w, -tangent[1], tangent[0], 0);
+	m_clipTransform->Scale(ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxThickness->value());
 
 	vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
-	transformFilter->SetTransform(transform);
+	transformFilter->SetTransform(m_clipTransform);
 
 	if (ui->comboBoxClipperStyle->currentText() == "Box")
 	{
@@ -262,6 +285,51 @@ void MainWindow::slotSpinBoxRotateChanged()
 	this->slotSetClipper();
 }
 
+void MainWindow::slotClipProximal()
+{
+	clip(1);
+}
+
+void MainWindow::slotClipDistal()
+{
+	clip(-1);
+}
+
+void MainWindow::slotResetSurface()
+{
+	m_io->GetSurface()->DeepCopy(m_io->GetOriginalSurface());
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotResetCenterline()
+{
+	m_io->GetCenterline()->DeepCopy(m_io->GetOriginalCenterline());
+	this->updateCenterlineDataTable();
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSaveSurface()
+{
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Surface File"), ui->lineEditSurface->text(), tr("Surface Files (*.stl *.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->WriteSurface(fileName);
+}
+
+void MainWindow::slotSaveCenterline()
+{
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Centerline File"), ui->lineEditCenterline->text(), tr("Centerline Files (*.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->WriteSurface(fileName);
+}
+
 void MainWindow::slotExit()
 {
 	qApp->exit();
@@ -301,11 +369,9 @@ void MainWindow::renderCenterline()
 
 void MainWindow::renderFirstBifurcationPoint()
 {
-	double* point = m_io->GetCenterline()->GetPoint(m_io->GetCenterlineFirstBifurcationPointId());
+	QVector<double> point = m_io->GetCenterlineFirstBifurcationPoint();
 
-	std::cout << "first bifucation point: " << point[0] << ", " << point[1] << ", " << point[2] << std::endl;
-
-	m_firstBifurcationSphereSource->SetCenter(m_io->GetCenterline()->GetPoint(m_io->GetCenterlineFirstBifurcationPointId()));
+	m_firstBifurcationSphereSource->SetCenter(point[0], point[1], point[2]);
 	m_firstBifurcationActor->VisibilityOn();
 	ui->qvtkWidget->update();
 }
@@ -450,13 +516,91 @@ void MainWindow::createCurrentPickingPoint()
 
 void MainWindow::createClipper()
 {
-	// default to use box clipper
-	//m_clipperMapper->SetInputConnection(m_boxClipperSource->GetOutputPort());
 	m_clipperActor->SetMapper(m_clipperMapper);
 	m_clipperActor->GetProperty()->SetColor(161 * 1.0 / 161, 255 * 1.0 / 161, 20 * 1.0 / 255);
+	m_clipperActor->GetProperty()->SetOpacity(1.0);
 	m_clipperActor->VisibilityOff();
 
 	m_renderer->AddActor(m_clipperActor);
+}
+
+void MainWindow::clip(int direction)
+{
+	/**
+	* the direction must be -1 (remove distal) or 1 (remove proximal)
+	*/
+
+	if (m_clppingPointId > m_io->GetCenterline()->GetNumberOfPoints() - 1)
+		return;
+
+	// calculate the pick point (1mm from centerline normal direction
+	// centerline tangent
+	double* tangent = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent")->GetTuple(m_clppingPointId);
+	double* point = m_io->GetCenterline()->GetPoint(m_clppingPointId);
+
+	double pickPoint[3] = { point[0] + direction*tangent[0],point[1] + direction*tangent[1] ,point[2] + direction*tangent[2] };
+
+	if (tangent == nullptr || point == nullptr)
+		return;
+
+	// lcc filter
+	vtkSmartPointer<vtkConnectivityFilter> connectedFilter = vtkSmartPointer<vtkConnectivityFilter>::New();
+	connectedFilter->SetExtractionModeToClosestPointRegion();
+	connectedFilter->SetClosestPoint(pickPoint);
+
+	vtkSmartPointer<vtkClipPolyData> clipper = vtkSmartPointer<vtkClipPolyData>::New();
+	clipper->GenerateClippedOutputOn();
+	clipper->SetValue(0);
+
+	if (ui->comboBoxClipperStyle->currentText() == "Box")
+	{
+		vtkSmartPointer<vtkBoxWidget> clipWidget = vtkSmartPointer<vtkBoxWidget>::New();
+		clipWidget->SetTransform(m_clipTransform);
+		vtkSmartPointer<vtkPlanes> clipFunction = vtkSmartPointer<vtkPlanes>::New();
+		// transfer the box widget planes to clip function
+		clipWidget->GetPlanes(clipFunction);
+		clipper->SetClipFunction(clipFunction);
+	}
+
+	m_clipTransform->Print(std::cout);
+
+	// clip surface
+	clipper->SetInputData(m_io->GetSurface());
+	clipper->Update();
+	connectedFilter->SetInputData(clipper->GetOutput());
+	connectedFilter->Update();
+	m_io->GetSurface()->DeepCopy(connectedFilter->GetOutput());
+
+	// hold bifurcation point before centerline clip
+	QVector<double> bif_point(3);
+	bif_point[0] = m_io->GetCenterlineFirstBifurcationPoint()[0];
+	bif_point[1] = m_io->GetCenterlineFirstBifurcationPoint()[1];
+	bif_point[2] = m_io->GetCenterlineFirstBifurcationPoint()[2];
+	
+	std::cout << "before clip: " <<
+		bif_point[0] << ", " <<
+		bif_point[1] << ", " <<
+		bif_point[2] << ", " <<
+		std::endl;
+
+	// clip centerline
+	clipper->SetInputData(m_io->GetCenterline());
+	clipper->Update();
+	connectedFilter->SetInputData(clipper->GetOutput());
+	connectedFilter->Update();
+	m_io->GetCenterline()->DeepCopy(connectedFilter->GetOutput());
+
+	std::cout << "after clip: " <<
+		bif_point[0] << ", " <<
+		bif_point[1] << ", " <<
+		bif_point[2] << ", " <<
+		std::endl;
+
+	m_io->SetCenterlineFirstBifurcationPoint(bif_point);
+	this->renderFirstBifurcationPoint();
+
+	this->updateCenterlineDataTable();
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::readFileComplete()
