@@ -29,6 +29,7 @@
 #include "vtkStripper.h"
 #include "vtkAppendPolyData.h"
 #include "vtkThreshold.h"
+#include <vtkVersion.h>
 #include "vtkGeometryFilter.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
@@ -104,8 +105,11 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 
 	// shortcut, remove for release
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+
 };
 
 MainWindow::~MainWindow()
@@ -226,7 +230,11 @@ void MainWindow::slotSetClipper()
 	int currentPickingId = ui->tableWidgetCenterline->currentRow();
 
 	if (currentPickingId < 0)
+	{
+		m_clipperActor->VisibilityOff();
+		ui->qvtkWidget->update();
 		return;
+	}
 
 	m_clppingPointId = currentPickingId;
 
@@ -375,7 +383,7 @@ void MainWindow::slotSurfaceCapping()
 	{
 		// extract isolated surface
 		vtkSmartPointer<vtkThreshold> thresholdFilter = vtkSmartPointer<vtkThreshold>::New();
-		thresholdFilter->SetInputData(connectFilter->GetOutput());
+		thresholdFilter->SetInputConnection(connectFilter->GetOutputPort());
 		thresholdFilter->ThresholdBetween(i, i);
 		thresholdFilter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "RegionId");
 		thresholdFilter->Update();
@@ -605,6 +613,17 @@ void MainWindow::createClipper()
 
 void MainWindow::clip(int direction)
 {
+	std::cout << "=======================================" << std::endl;
+	std::cout << "number of centerline points before clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
+	std::cout << "Bifurcation point before clip: " <<
+		m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " <<
+		m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
+		m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
+	std::cout << "clipper transform before clip: " << std::endl;
+	m_clipTransform->GetMatrix()->Print(std::cout);
+	std::cout << "*********" << std::endl;
+
+
 	/**
 	* the direction must be -1 (remove distal) or 1 (remove proximal)
 	*/
@@ -648,7 +667,15 @@ void MainWindow::clip(int direction)
 	clipper->Update();
 	connectedFilter->SetInputData(clipper->GetOutput());
 	connectedFilter->Update();
+
+#if VTK_MAJOR_VERSION >= 8
 	m_io->GetSurface()->DeepCopy(connectedFilter->GetOutput());
+#else
+	vtkSmartPointer<vtkGeometryFilter> geomFilter1 = vtkSmartPointer<vtkGeometryFilter>::New();
+	geomFilter1->SetInputConnection(connectedFilter->GetOutputPort());
+	geomFilter1->Update();
+	m_io->GetSurface()->DeepCopy(geomFilter1->GetOutput());
+#endif
 
 	// hold bifurcation point before centerline clip
 	QVector<double> bif_point(3);
@@ -667,7 +694,15 @@ void MainWindow::clip(int direction)
 	clipper->Update();
 	connectedFilter->SetInputData(clipper->GetOutput());
 	connectedFilter->Update();
+
+#if VTK_MAJOR_VERSION >= 8
 	m_io->GetCenterline()->DeepCopy(connectedFilter->GetOutput());
+#else
+	vtkSmartPointer<vtkGeometryFilter> geomFilter2 = vtkSmartPointer<vtkGeometryFilter>::New();
+	geomFilter2->SetInputConnection(connectedFilter->GetOutputPort());
+	geomFilter2->Update();
+	m_io->GetCenterline()->DeepCopy(geomFilter2->GetOutput());
+#endif
 
 	//std::cout << "after clip: " <<
 	//	bif_point[0] << ", " <<
@@ -679,26 +714,29 @@ void MainWindow::clip(int direction)
 	this->renderFirstBifurcationPoint();
 
 	this->updateCenterlineDataTable();
+
+	// set clipper invisible
+	this->m_clipperActor->VisibilityOff();
 	ui->qvtkWidget->update();
+
+	std::cout << "number of centerline points after clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
+	std::cout << "Bifurcation point after clip: " << 
+		m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " << 
+		m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
+		m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
+	std::cout << "clipper transform after clip: " << std::endl;
+	m_clipTransform->GetMatrix()->Print(std::cout);
+
 }
 
 void MainWindow::renderBoundaryCaps()
 {
-	std::cout << "aaa" << std::endl;
-
-	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
-
-
 	// remove all previous actors from renderer first
 	for (int i = 0; i < m_boundaryCapActors.size(); i++)
 	{
 		m_renderer->RemoveActor(m_boundaryCapActors.at(i));
 	}
 	m_boundaryCapActors.clear();
-
-	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
-
-	std::cout << "bbb" << std::endl;
 
 	for (int i =0; i < m_io->GetBoundarCaps().size();i++)
 	{
@@ -712,16 +750,8 @@ void MainWindow::renderBoundaryCaps()
 		m_renderer->AddActor(actor);
 	}
 
-	std::cout << "renderer actor count: " << m_renderer->GetActors()->GetNumberOfItems() << std::endl;
-
-
-	std::cout << "ccc" << std::endl;
-
 	// set capper to invisible
 	m_clipperActor->VisibilityOff();
-
-	std::cout << "ddd" << std::endl;
-
 
 	ui->qvtkWidget->update();
 }
