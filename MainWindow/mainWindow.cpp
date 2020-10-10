@@ -31,6 +31,10 @@
 #include "vtkThreshold.h"
 #include <vtkVersion.h>
 #include "vtkGeometryFilter.h"
+#include "vtkImplicitPolyDataDistance.h"
+#include "vtkCenterOfMass.h"
+#include "vtkArrowSource.h"
+#include "vtkUnstructuredGrid.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -59,6 +63,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// centerline table
 	ui->tableWidgetCenterline->verticalHeader()->setVisible(false);
 	ui->tableWidgetCenterline->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+	// boundary caps table
+	ui->tableWidgetDomain->verticalHeader()->setVisible(false);
+	ui->tableWidgetDomain->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// qvtk widget start
 	ui->qvtkWidget->GetRenderWindow()->AddRenderer(m_renderer);
@@ -103,6 +111,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonCapping, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
+	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
+	
+	// domain table text change
+	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
 
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
@@ -242,11 +254,19 @@ void MainWindow::slotSetClipper()
 	double* tangent = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent")->GetTuple(currentPickingId);
 
 	m_clipTransform->Identity();
+
 	m_clipTransform->Translate(m_io->GetCenterline()->GetPoint(currentPickingId));
 	m_clipTransform->RotateWXYZ(ui->doubleSpinBoxRotate->value(), tangent[0], tangent[1], tangent[2]);
+	if (ui->comboBoxClipperStyle->currentText() == "Cylinder")
+	{
+		m_clipTransform->RotateX(90);
+	}
 	double w = atan(sqrt(pow(tangent[0], 2) + pow(tangent[1], 2)) / tangent[2]) * 180 / 3.14;
 	m_clipTransform->RotateWXYZ(w, -tangent[1], tangent[0], 0);
-	m_clipTransform->Scale(ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxThickness->value());
+	if (ui->comboBoxClipperStyle->currentText() == "Box")
+		m_clipTransform->Scale(ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxThickness->value());
+	else if (ui->comboBoxClipperStyle->currentText() == "Cylinder")
+		m_clipTransform->Scale(ui->doubleSpinBoxSize->value(), ui->doubleSpinBoxThickness->value(), ui->doubleSpinBoxSize->value());
 
 	vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
 	transformFilter->SetTransform(m_clipTransform);
@@ -255,6 +275,15 @@ void MainWindow::slotSetClipper()
 	{
 		vtkSmartPointer<vtkCubeSource> clipBox = vtkSmartPointer<vtkCubeSource>::New();
 		transformFilter->SetInputConnection(clipBox->GetOutputPort());
+		transformFilter->Update();
+
+		m_clipperMapper->SetInputConnection(transformFilter->GetOutputPort());
+	}
+	else if (ui->comboBoxClipperStyle->currentText() == "Cylinder")
+	{
+		vtkSmartPointer<vtkCylinderSource> clipCylinder = vtkSmartPointer<vtkCylinderSource>::New();
+		clipCylinder->SetResolution(100);
+		transformFilter->SetInputConnection(clipCylinder->GetOutputPort());
 		transformFilter->Update();
 
 		m_clipperMapper->SetInputConnection(transformFilter->GetOutputPort());
@@ -347,10 +376,11 @@ void MainWindow::slotSaveCenterline()
 
 void MainWindow::slotSurfaceCapping()
 {
-	std::cout << "111" << std::endl;
-
 	// remove all old data
 	m_io->RemoveAllBoundaryCaps();
+
+	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
+		return;
 
 	// extract feature edges
 	vtkSmartPointer<vtkFeatureEdges> boundaryEdges = vtkSmartPointer<vtkFeatureEdges>::New();
@@ -374,38 +404,76 @@ void MainWindow::slotSurfaceCapping()
 	vtkSmartPointer<vtkConnectivityFilter> connectFilter = vtkSmartPointer<vtkConnectivityFilter>::New();
 	connectFilter->SetExtractionModeToAllRegions();
 	connectFilter->SetInputData(boundaryPoly);
+	connectFilter->ColorRegionsOn(); // to generate RegionId array
 	connectFilter->Update();
 
-	std::cout << "222" << std::endl;
+	vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+	geomFilter->SetInputConnection(connectFilter->GetOutputPort());
+	geomFilter->Update();
+	boundaryPoly->DeepCopy(geomFilter->GetOutput());
 
 	// loop over the caps
 	for (int i = 0; i < connectFilter->GetNumberOfExtractedRegions(); i++)
 	{
 		// extract isolated surface
 		vtkSmartPointer<vtkThreshold> thresholdFilter = vtkSmartPointer<vtkThreshold>::New();
-		thresholdFilter->SetInputConnection(connectFilter->GetOutputPort());
+		thresholdFilter->SetInputData(boundaryPoly);
 		thresholdFilter->ThresholdBetween(i, i);
 		thresholdFilter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "RegionId");
 		thresholdFilter->Update();
-
-		vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-		geomFilter->SetInputConnection(thresholdFilter->GetOutputPort());
-		geomFilter->Update();
-
+			 
 		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
-		cap_poly->DeepCopy(geomFilter->GetOutput());
+		cap_poly->DeepCopy(thresholdFilter->GetOutput());
+
+		std::cout << "after threshold bc count: " << cap_poly->GetNumberOfPoints() << std::endl;
 
 		// inject into io database
 		BoundaryCap bc;
-		bc.polydata = boundaryPoly;
+		bc.polydata->DeepCopy(cap_poly);
+
+		std::cout << bc.polydata << std::endl;
+
+		// compute center of the boundary cap
+		vtkSmartPointer<vtkCenterOfMass> com = vtkSmartPointer<vtkCenterOfMass>::New();
+		com->SetInputData(cap_poly);
+		com->Update();
+
+		// get the center id
+		vtkSmartPointer<vtkKdTreePointLocator> kdTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
+		kdTree->SetDataSet(m_io->GetOriginalCenterline());
+		kdTree->Update();
+		int id = kdTree->FindClosestPoint(com->GetCenter());
+
+		// set the center
+		QVector<double> center(3);
+		center[0] = m_io->GetOriginalCenterline()->GetPoint(id)[0];
+		center[1] = m_io->GetOriginalCenterline()->GetPoint(id)[1];
+		center[2] = m_io->GetOriginalCenterline()->GetPoint(id)[2];
+		bc.center = center;
+
+		// set the radius
+		if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius") != nullptr)
+			bc.radius = m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius")->GetComponent(id,0);
+
+		// set the tangent
+		if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent") != nullptr)
+		{
+			QVector<double> tangent(3);
+			tangent[0] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 0);
+			tangent[1] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 1);
+			tangent[2] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 2);
+
+			bc.tangent = tangent;
+		}
+
 		m_io->AddBoundaryCap(bc);
 	}
 
-
-	std::cout << "333" << std::endl;
+	this->updateBoundaryCapsTable();
 
 	// render
 	this->renderBoundaryCaps();
+	this->renderBoundaryCapsDirection();
 }
 
 void MainWindow::slotSaveDomain()
@@ -414,6 +482,60 @@ void MainWindow::slotSaveDomain()
 
 void MainWindow::slotRemoveCap()
 {
+}
+
+void MainWindow::slotBoundaryCapTypeChange(int index)
+{
+	for (int i = 0; i < ui->tableWidgetDomain->rowCount(); i++)
+	{
+		BoundaryCap bc;
+		bc.name = m_io->GetBoundaryCaps().at(i).name;
+		bc.center = m_io->GetBoundaryCaps().at(i).center;
+		bc.polydata->DeepCopy(m_io->GetBoundaryCaps().at(i).polydata);
+		bc.radius = m_io->GetBoundaryCaps().at(i).radius;
+		bc.tangent = m_io->GetBoundaryCaps().at(i).tangent;
+
+		QComboBox* combo = (QComboBox* )ui->tableWidgetDomain->cellWidget(i, 1);
+
+		switch (combo->currentIndex())
+		{
+			case 0:
+				bc.type = BoundaryCapType::none;
+				break;
+			case 1:
+				bc.type = BoundaryCapType::inlet;
+				break;
+			case 2:
+				bc.type = BoundaryCapType::outlet;
+				break;
+		}
+
+		m_io->SetBoundaryCap(i,bc);
+	}
+	this->renderBoundaryCapsDirection();
+}
+
+void MainWindow::slotBoundaryCapTableItemChanged(QTableWidgetItem* item)
+{
+	// Block table signals
+	ui->tableWidgetDomain->blockSignals(true);
+
+	// check if first column (name) change
+	if (item->column() == 0)
+	{
+		BoundaryCap bc;
+		bc.name = item->text();
+		bc.center = m_io->GetBoundaryCaps().at(item->row()).center;
+		bc.polydata->DeepCopy(m_io->GetBoundaryCaps().at(item->row()).polydata);
+		bc.radius = m_io->GetBoundaryCaps().at(item->row()).radius;
+		bc.tangent = m_io->GetBoundaryCaps().at(item->row()).tangent;
+		bc.type = m_io->GetBoundaryCaps().at(item->row()).type;
+
+		m_io->SetBoundaryCap(item->row(), bc);
+	}
+
+	// Unblock signals
+	ui->tableWidgetDomain->blockSignals(false);
 }
 
 void MainWindow::slotExit()
@@ -613,15 +735,15 @@ void MainWindow::createClipper()
 
 void MainWindow::clip(int direction)
 {
-	std::cout << "=======================================" << std::endl;
-	std::cout << "number of centerline points before clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
-	std::cout << "Bifurcation point before clip: " <<
-		m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " <<
-		m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
-		m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
-	std::cout << "clipper transform before clip: " << std::endl;
-	m_clipTransform->GetMatrix()->Print(std::cout);
-	std::cout << "*********" << std::endl;
+	//std::cout << "=======================================" << std::endl;
+	//std::cout << "number of centerline points before clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
+	//std::cout << "Bifurcation point before clip: " <<
+	//	m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " <<
+	//	m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
+	//	m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
+	//std::cout << "clipper transform before clip: " << std::endl;
+	//m_clipTransform->GetMatrix()->Print(std::cout);
+	//std::cout << "*********" << std::endl;
 
 
 	/**
@@ -658,6 +780,24 @@ void MainWindow::clip(int direction)
 		// transfer the box widget planes to clip function
 		clipWidget->GetPlanes(clipFunction);
 		clipper->SetClipFunction(clipFunction);
+	}
+	else if (ui->comboBoxClipperStyle->currentText() == "Clyinder")
+	{
+		vtkSmartPointer<vtkCylinderSource> cylinder = vtkSmartPointer<vtkCylinderSource>::New();
+		cylinder->SetResolution(100);
+
+		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+		transformFilter->SetInputData(cylinder->GetOutput());
+		transformFilter->SetTransform(m_clipTransform);
+		transformFilter->Update();
+
+		// Implicit function that will be used to slice the mesh 
+		vtkSmartPointer<vtkImplicitPolyDataDistance> implicitPolyDataDistance =
+			vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+		implicitPolyDataDistance->SetInput(transformFilter->GetOutput());
+		implicitPolyDataDistance->Modified();
+
+		clipper->SetClipFunction(implicitPolyDataDistance);
 	}
 
 	//m_clipTransform->Print(std::cout);
@@ -719,13 +859,13 @@ void MainWindow::clip(int direction)
 	this->m_clipperActor->VisibilityOff();
 	ui->qvtkWidget->update();
 
-	std::cout << "number of centerline points after clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
-	std::cout << "Bifurcation point after clip: " << 
-		m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " << 
-		m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
-		m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
-	std::cout << "clipper transform after clip: " << std::endl;
-	m_clipTransform->GetMatrix()->Print(std::cout);
+	//std::cout << "number of centerline points after clip: " << m_io->GetCenterline()->GetNumberOfPoints() << std::endl;
+	//std::cout << "Bifurcation point after clip: " << 
+	//	m_io->GetCenterlineFirstBifurcationPoint()[0] << ", " << 
+	//	m_io->GetCenterlineFirstBifurcationPoint()[1] << ", " <<
+	//	m_io->GetCenterlineFirstBifurcationPoint()[2] << std::endl;
+	//std::cout << "clipper transform after clip: " << std::endl;
+	//m_clipTransform->GetMatrix()->Print(std::cout);
 
 }
 
@@ -738,13 +878,29 @@ void MainWindow::renderBoundaryCaps()
 	}
 	m_boundaryCapActors.clear();
 
-	for (int i =0; i < m_io->GetBoundarCaps().size();i++)
+	std::cout << "render bc after clear" << std::endl;
+
+	for (int i =0; i < m_io->GetBoundaryCaps().size();i++)
 	{
+		std::cout << "bc no of pts: "<< m_io->GetBoundaryCaps().at(i).polydata->GetNumberOfPoints() << std::endl;
+		std::cout << "bc no of cells: " << m_io->GetBoundaryCaps().at(i).polydata->GetNumberOfCells() << std::endl;
+
 		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-		mapper->SetInputData(m_io->GetBoundarCaps().at(i).polydata);
+		mapper->SetInputData(m_io->GetBoundaryCaps().at(i).polydata);
 		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
 		actor->SetMapper(mapper);
-		actor->GetProperty()->SetColor(94 / 255.0, 255 / 255.0, 145 / 255.0);
+		switch (m_io->GetBoundaryCaps().at(i).type)
+		{
+		case BoundaryCapType::none:
+			actor->GetProperty()->SetColor(52 / 255.0, 20 / 255.0, 255 / 255.0);
+			break;
+		case BoundaryCapType::inlet:
+			actor->GetProperty()->SetColor(94 / 255.0, 255 / 255.0, 145 / 255.0);
+			break;
+		case BoundaryCapType::outlet:
+			actor->GetProperty()->SetColor(255 / 255.0, 90 / 255.0, 61 / 255.0);
+			break;
+		}
 		actor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
 		m_boundaryCapActors.append(actor);
 		m_renderer->AddActor(actor);
@@ -754,6 +910,138 @@ void MainWindow::renderBoundaryCaps()
 	m_clipperActor->VisibilityOff();
 
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::updateBoundaryCapsTable()
+{
+	// clear table first
+	ui->tableWidgetDomain->setRowCount(0);
+
+	for (int i = 0; i < m_io->GetBoundaryCaps().size(); i++)
+	{
+		BoundaryCap bc = m_io->GetBoundaryCaps().at(i);
+		ui->tableWidgetDomain->insertRow(ui->tableWidgetDomain->rowCount());
+		
+		// name
+		ui->tableWidgetDomain->setItem(
+			ui->tableWidgetDomain->rowCount() - 1,
+			0,
+			new QTableWidgetItem(m_io->GetBoundaryCaps().at(i).name));
+
+		// type
+		QComboBox* combo = new QComboBox(ui->tableWidgetDomain);
+		combo->addItem("None");
+		combo->addItem("Inlet");
+		combo->addItem("Outlet");
+		combo->setCurrentIndex(bc.type);
+		ui->tableWidgetDomain->setCellWidget(
+			ui->tableWidgetDomain->rowCount() - 1,
+			1,
+			combo);
+		// combobox change
+		connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotBoundaryCapTypeChange);
+
+		// center
+		QString center = 
+			QString::number(bc.center[0]) + ", " + 
+			QString::number(bc.center[1]) + ", " + 
+			QString::number(bc.center[2]);
+			 
+		ui->tableWidgetDomain->setItem(
+			ui->tableWidgetDomain->rowCount() - 1,
+			2,
+			new QTableWidgetItem(center));
+
+		// tangent
+		QString tangent =
+			QString::number(bc.tangent[0]) + ", " +
+			QString::number(bc.tangent[1]) + ", " +
+			QString::number(bc.tangent[2]);
+
+		ui->tableWidgetDomain->setItem(
+			ui->tableWidgetDomain->rowCount() - 1,
+			3,
+			new QTableWidgetItem(tangent));
+
+		// radius
+		ui->tableWidgetDomain->setItem(
+			ui->tableWidgetDomain->rowCount() - 1,
+			4,
+			new QTableWidgetItem(QString::number(bc.radius)));
+	}
+
+	// disable edit function
+	for (int j = 2; j<4; j++)
+		ui->tableWidgetDomain->item(ui->tableWidgetDomain->rowCount() - 1, j)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+}
+
+void MainWindow::renderBoundaryCapsDirection()
+{
+	// remove all previous actors from renderer first
+	for (int i = 0; i < m_boundaryCapsDirectionActor.size(); i++)
+	{
+		m_renderer->RemoveActor(m_boundaryCapsDirectionActor.at(i));
+	}
+	m_boundaryCapsDirectionActor.clear();
+
+	for (int i = 0; i < m_io->GetBoundaryCaps().size(); i++)
+	{
+		BoundaryCap bc = m_io->GetBoundaryCaps().at(i);
+
+		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+		
+		// create arrow to indication direction
+		vtkSmartPointer<vtkArrowSource> arrowSource = vtkSmartPointer<vtkArrowSource>::New();
+		arrowSource->SetShaftResolution(100);
+		arrowSource->SetTipResolution(100);
+		arrowSource->Update();
+		
+		// create transform
+		vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+		transform->Translate(bc.center[0],bc.center[1],bc.center[2]);
+		double w = atan(sqrt(pow(bc.tangent[0], 2) + pow(bc.tangent[1], 2)) / bc.tangent[2]) * 180 / 3.14;
+		transform->RotateWXYZ(w, -bc.tangent[1], bc.tangent[0], 0);
+		transform->RotateY(-90);
+		switch (bc.type)
+		{
+			case BoundaryCapType::none:
+				transform->Scale(0, 0, 0);
+				break;
+			case BoundaryCapType::inlet:
+				transform->Scale(10,10,10);
+				transform->Translate(-1, 0, 0);
+				break;
+			case BoundaryCapType::outlet:
+				transform->Scale(10, 10, 10);
+				break;
+		}
+		
+		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+		transformFilter->SetInputData(arrowSource->GetOutput());
+		transformFilter->SetTransform(transform);
+		transformFilter->Update();
+
+		mapper->SetInputData(transformFilter->GetOutput());
+		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+		actor->SetMapper(mapper);
+		switch (bc.type)
+		{
+		case BoundaryCapType::none:
+			break;
+		case BoundaryCapType::inlet:
+			actor->GetProperty()->SetColor(94 / 255.0, 255 / 255.0, 145 / 255.0);
+			break;
+		case BoundaryCapType::outlet:
+			actor->GetProperty()->SetColor(255 / 255.0, 90 / 255.0, 61 / 255.0);
+			break;
+		}
+		actor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+		m_boundaryCapsDirectionActor.append(actor);
+		m_renderer->AddActor(actor);
+	}
+
+	ui->qvtkWidget->update();
+
 }
 
 void MainWindow::readSurfaceFileComplete()

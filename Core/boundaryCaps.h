@@ -2,12 +2,14 @@
 #define BOUNDARYCAPS_H
 
 #include "vtkPolyData.h"
+#include "vtkSmartPointer.h"
 
 enum BoundaryCapType { none, inlet, outlet };
 
 struct BoundaryCap {
-	vtkPolyData* polydata;
-	BoundaryCapType type;
+	QString name;
+	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
+	BoundaryCapType type = BoundaryCapType::none;
 	QVector<double> center;
 	QVector<double> tangent;
 	double radius;

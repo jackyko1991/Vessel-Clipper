@@ -58,6 +58,8 @@ public slots:
 	void slotSurfaceCapping();
 	void slotSaveDomain();
 	void slotRemoveCap();
+	void slotBoundaryCapTypeChange(int);
+	void slotBoundaryCapTableItemChanged(QTableWidgetItem*);
 
 private slots:
 	void readSurfaceFileComplete();
@@ -75,6 +77,8 @@ private:
 	void createClipper();
 	void clip(int);
 	void renderBoundaryCaps();
+	void updateBoundaryCapsTable();
+	void renderBoundaryCapsDirection();
 
 	IO* m_io;
 
@@ -112,6 +116,7 @@ private:
 
 	// boundary caps
 	QList<vtkActor*> m_boundaryCapActors;
+	QList<vtkActor*> m_boundaryCapsDirectionActor;
 };
 
 #endif

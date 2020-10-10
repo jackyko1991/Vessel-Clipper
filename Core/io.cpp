@@ -379,12 +379,25 @@ void IO::AddBoundaryCap(BoundaryCap boundaryCap)
 	m_boundaryCaps.append(boundaryCap);
 }
 
+void IO::RemoveBoundaryCap(int index)
+{
+	m_boundaryCaps.removeAt(index);
+}
+
 void IO::RemoveAllBoundaryCaps()
 {
 	this->m_boundaryCaps.clear();
 }
 
-QList<BoundaryCap> IO::GetBoundarCaps()
+void IO::SetBoundaryCap(int index, BoundaryCap bc)
+{
+	if (m_boundaryCaps.size() <= index)
+		return;
+
+	m_boundaryCaps.replace(index, bc);
+}
+
+QList<BoundaryCap> IO::GetBoundaryCaps()
 {
 	return m_boundaryCaps;
 }

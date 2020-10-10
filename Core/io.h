@@ -40,7 +40,8 @@ public:
 	void AddBoundaryCap(BoundaryCap);
 	void RemoveBoundaryCap(int);
 	void RemoveAllBoundaryCaps();
-	QList<BoundaryCap> GetBoundarCaps();
+	QList<BoundaryCap> GetBoundaryCaps();
+	void SetBoundaryCap(int, BoundaryCap);
 
 signals:
 	// 0 for success, 1 for fail
