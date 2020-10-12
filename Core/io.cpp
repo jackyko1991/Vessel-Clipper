@@ -321,18 +321,7 @@ void IO::updateCenterlineFirstBifurcationPointId()
 	double point[3] = { m_firstBifurcationPoint[0], m_firstBifurcationPoint[1], m_firstBifurcationPoint[2] };
 	int id = kdTree->FindClosestPoint(point);
 
-	std::cout << "before update id: " <<
-		m_firstBifurcationPoint[0] << ", " <<
-		m_firstBifurcationPoint[1] << ", " <<
-		m_firstBifurcationPoint[2] << ", " <<
-		std::endl;
 	m_centerlineFirstBifurcationPointId = id;
-
-	std::cout <<"after update id: "<< 
-		m_firstBifurcationPoint[0] << ", " <<
-		m_firstBifurcationPoint[1] << ", " <<
-		m_firstBifurcationPoint[2] << ", " <<
-		std::endl;
 }
 
 void IO::AutoLocateFirstBifurcationPoint()

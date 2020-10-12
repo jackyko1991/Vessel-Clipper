@@ -117,11 +117,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
 
 	// shortcut, remove for release
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -421,9 +420,13 @@ void MainWindow::slotSurfaceCapping()
 		thresholdFilter->ThresholdBetween(i, i);
 		thresholdFilter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "RegionId");
 		thresholdFilter->Update();
-			 
+			
+		vtkSmartPointer<vtkGeometryFilter> geomFilter2 = vtkSmartPointer<vtkGeometryFilter>::New();
+		geomFilter2->SetInputConnection(thresholdFilter->GetOutputPort());
+		geomFilter2->Update();
+
 		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
-		cap_poly->DeepCopy(thresholdFilter->GetOutput());
+		cap_poly->DeepCopy(geomFilter2->GetOutput());
 
 		std::cout << "after threshold bc count: " << cap_poly->GetNumberOfPoints() << std::endl;
 
@@ -512,6 +515,7 @@ void MainWindow::slotBoundaryCapTypeChange(int index)
 
 		m_io->SetBoundaryCap(i,bc);
 	}
+	this->renderBoundaryCaps();
 	this->renderBoundaryCapsDirection();
 }
 
@@ -878,15 +882,11 @@ void MainWindow::renderBoundaryCaps()
 	}
 	m_boundaryCapActors.clear();
 
-	std::cout << "render bc after clear" << std::endl;
-
 	for (int i =0; i < m_io->GetBoundaryCaps().size();i++)
 	{
-		std::cout << "bc no of pts: "<< m_io->GetBoundaryCaps().at(i).polydata->GetNumberOfPoints() << std::endl;
-		std::cout << "bc no of cells: " << m_io->GetBoundaryCaps().at(i).polydata->GetNumberOfCells() << std::endl;
-
 		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 		mapper->SetInputData(m_io->GetBoundaryCaps().at(i).polydata);
+		mapper->SetScalarVisibility(0);
 		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
 		actor->SetMapper(mapper);
 		switch (m_io->GetBoundaryCaps().at(i).type)
