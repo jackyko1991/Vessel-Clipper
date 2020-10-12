@@ -7,7 +7,7 @@
 enum BoundaryCapType { none, inlet, outlet };
 
 struct BoundaryCap {
-	QString name;
+	QString name = QString("boundary");
 	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
 	BoundaryCapType type = BoundaryCapType::none;
 	QVector<double> center;

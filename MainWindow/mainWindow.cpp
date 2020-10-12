@@ -27,7 +27,6 @@
 #include "vtkKdTreePointLocator.h"
 #include "vtkFeatureEdges.h"
 #include "vtkStripper.h"
-#include "vtkAppendPolyData.h"
 #include "vtkThreshold.h"
 #include <vtkVersion.h>
 #include "vtkGeometryFilter.h"
@@ -114,6 +113,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
+	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
 
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
@@ -480,6 +480,16 @@ void MainWindow::slotSurfaceCapping()
 
 void MainWindow::slotSaveDomain()
 {
+	QDir dir = QFileInfo(ui->lineEditCenterline->text()).absoluteDir();
+
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Domain"), dir.absolutePath() + "/domain.json", tr("Domain File (*.json)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->SetWriteDomainPath(fileName);
+	m_io->WriteDomain();
 }
 
 void MainWindow::slotRemoveCap()
@@ -544,6 +554,8 @@ void MainWindow::slotBoundaryCapTypeChange(int index)
 
 void MainWindow::slotBoundaryCapTableItemChanged(QTableWidgetItem* item)
 {
+	std::cout << "change bc name" << std::endl;
+
 	// Block table signals
 	ui->tableWidgetDomain->blockSignals(true);
 

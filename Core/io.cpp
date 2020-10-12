@@ -14,6 +14,8 @@
 #include "vtkDataArray.h"
 #include "vtkUnstructuredGrid.h"
 #include "vtkKdTreePointLocator.h"
+#include "vtkAppendPolyData.h"
+#include "vtkCleanPolyData.h"
 
 IO::IO(QObject* parent)
 {
@@ -384,6 +386,93 @@ void IO::SetBoundaryCap(int index, BoundaryCap bc)
 		return;
 
 	m_boundaryCaps.replace(index, bc);
+}
+
+void IO::SetWriteDomainPath(QString dir)
+{
+	m_domainFile.setFile(dir);
+}
+
+void IO::WriteDomain()
+{
+	// capped surface
+	vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
+	appendFilter->SetInputData(m_surface);
+
+	for (int i = 0; i < m_boundaryCaps.size(); i++)
+	{
+		appendFilter->AddInputData(m_boundaryCaps.at(i).polydata);
+	}
+	appendFilter->Update();
+	vtkSmartPointer<vtkCleanPolyData> cleaner = vtkSmartPointer<vtkCleanPolyData>::New();
+	cleaner->SetInputData(appendFilter->GetOutput());
+	cleaner->Update();
+
+	vtkSmartPointer<vtkSTLWriter> writer = vtkSmartPointer<vtkSTLWriter>::New();
+	QString cappedSurfacePath = this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName()+"_capped.stl");
+
+	writer->SetFileName(cappedSurfacePath.toStdString().c_str());
+	writer->SetInputData(cleaner->GetOutput());
+	writer->Update();
+
+	// boundary caps
+	QStringList boundaryCapsFilenameList;
+	for (int i = 0; i < m_boundaryCaps.size(); i++)
+	{
+		QString boundaryCapPath = this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() +"_" + m_boundaryCaps.at(i).name +".stl");
+		boundaryCapsFilenameList.append(boundaryCapPath);
+		writer->SetFileName(boundaryCapPath.toStdString().c_str());
+		writer->SetInputData(m_boundaryCaps.at(i).polydata);
+		writer->Update();
+	}
+
+	// surface wall
+	writer->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_wall.stl").toStdString().c_str());
+	writer->SetInputData(m_surface);
+	writer->Update();
+
+	// centerline
+	writer->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_centerline.stl").toStdString().c_str());
+	writer->SetInputData(m_centerline);
+	writer->Update();
+
+	// domain json
+}
+
+QString IO::addUniqueSuffix(const QString & fileName)
+{
+	// If the file doesn't exist return the same name.
+	if (!QFile::exists(fileName)) {
+		return fileName;
+	}
+
+	QFileInfo fileInfo(fileName);
+	QString ret;
+
+	// Split the file into 2 parts - dot+extension, and everything else. For
+	// example, "path/file.tar.gz" becomes "path/file"+".tar.gz", while
+	// "path/file" (note lack of extension) becomes "path/file"+"".
+	QString secondPart = fileInfo.completeSuffix();
+	QString firstPart;
+	if (!secondPart.isEmpty()) {
+		secondPart = "." + secondPart;
+		firstPart = fileName.left(fileName.size() - secondPart.size());
+	}
+	else {
+		firstPart = fileName;
+	}
+
+	// Try with an ever-increasing number suffix, until we've reached a file
+	// that does not yet exist.
+	for (int ii = 1; ; ii++) {
+		// Construct the new file name by adding the unique number between the
+		// first and second part.
+		ret = QString("%1 (%2)%3").arg(firstPart).arg(ii).arg(secondPart);
+		// If no file exists with the new name, return it.
+		if (!QFile::exists(ret)) {
+			return ret;
+		}
+	}
 }
 
 QList<BoundaryCap> IO::GetBoundaryCaps()

@@ -42,6 +42,10 @@ public:
 	void RemoveAllBoundaryCaps();
 	QList<BoundaryCap> GetBoundaryCaps();
 	void SetBoundaryCap(int, BoundaryCap);
+	void SetWriteDomainPath(QString dir);
+	void WriteDomain();
+
+	static QString addUniqueSuffix(const QString &fileName);
 
 signals:
 	// 0 for success, 1 for fail
@@ -53,6 +57,7 @@ signals:
 private:
 	QFileInfo m_surfaceFile;
 	QFileInfo m_centerlineFile;
+	QFileInfo m_domainFile;
 	void updateCenterlineFirstBifurcationPointId();
 	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
 	QList<BoundaryCap> m_boundaryCaps;
@@ -62,8 +67,8 @@ private:
 	vtkSmartPointer<vtkPolyData> m_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
 
-	
 	int m_centerlineFirstBifurcationPointId = 0;
+
 };
 
 #endif // ! IO_H
