@@ -85,6 +85,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
 	this->createClipper();
+	this->createBoundaryCapBoundingBox();
 
 	// signal slot connections
 	connect(ui->pushButtonSurface, &QPushButton::clicked, this, &MainWindow::slotBrowseSurface);
@@ -112,9 +113,11 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
-	
+	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
+
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
+	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
 
 	// shortcut, remove for release
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
@@ -428,13 +431,9 @@ void MainWindow::slotSurfaceCapping()
 		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
 		cap_poly->DeepCopy(geomFilter2->GetOutput());
 
-		std::cout << "after threshold bc count: " << cap_poly->GetNumberOfPoints() << std::endl;
-
 		// inject into io database
 		BoundaryCap bc;
 		bc.polydata->DeepCopy(cap_poly);
-
-		std::cout << bc.polydata << std::endl;
 
 		// compute center of the boundary cap
 		vtkSmartPointer<vtkCenterOfMass> com = vtkSmartPointer<vtkCenterOfMass>::New();
@@ -485,6 +484,30 @@ void MainWindow::slotSaveDomain()
 
 void MainWindow::slotRemoveCap()
 {
+	// remove actors
+	m_renderer->RemoveActor(this->m_boundaryCapActors.at(ui->tableWidgetDomain->currentRow()));
+	m_renderer->RemoveActor(this->m_boundaryCapsDirectionActor.at(ui->tableWidgetDomain->currentRow()));
+	
+	m_boundaryCapActors.removeAt(ui->tableWidgetDomain->currentRow());
+	m_boundaryCapsDirectionActor.removeAt(ui->tableWidgetDomain->currentRow());
+
+	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
+	this->m_outlineMapper->SetInputData(polydata);
+	this->m_outlineActor->VisibilityOff();
+
+	m_io->RemoveBoundaryCap(ui->tableWidgetDomain->currentRow());
+
+	this->renderBoundaryCaps();
+	this->renderBoundaryCapsDirection();
+	this->updateBoundaryCapsTable();
+}
+
+void MainWindow::slotRemoveAllCaps()
+{
+	m_io->RemoveAllBoundaryCaps();
+	this->renderBoundaryCaps();
+	this->renderBoundaryCapsDirection();
+	this->updateBoundaryCapsTable();
 }
 
 void MainWindow::slotBoundaryCapTypeChange(int index)
@@ -540,6 +563,22 @@ void MainWindow::slotBoundaryCapTableItemChanged(QTableWidgetItem* item)
 
 	// Unblock signals
 	ui->tableWidgetDomain->blockSignals(false);
+}
+
+void MainWindow::slotCurrentBoundaryCap()
+{
+	if (ui->tableWidgetDomain->currentRow() < 0)
+	{
+		m_outlineActor->VisibilityOff();
+		return;
+	}
+
+	m_outlinerFilter->SetInputData(m_io->GetBoundaryCaps().at(ui->tableWidgetDomain->currentRow()).polydata);
+	m_outlinerFilter->Update();
+	m_outlineMapper->SetInputData(m_outlinerFilter->GetOutput());
+	m_outlineMapper->Update();
+	m_outlineActor->VisibilityOn();
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::slotExit()
@@ -727,10 +766,19 @@ void MainWindow::createCurrentPickingPoint()
 	m_renderer->AddActor(m_currentPickingActor);
 }
 
+void MainWindow::createBoundaryCapBoundingBox()
+{
+	m_outlineActor->SetMapper(m_outlineMapper);
+	m_outlineActor->GetProperty()->SetColor(255 * 1.0 / 255, 255 * 1.0 / 255, 255 * 1.0 / 255);
+	m_outlineActor->VisibilityOff();
+
+	m_renderer->AddActor(m_outlineActor);
+}
+
 void MainWindow::createClipper()
 {
 	m_clipperActor->SetMapper(m_clipperMapper);
-	m_clipperActor->GetProperty()->SetColor(161 * 1.0 / 161, 255 * 1.0 / 161, 20 * 1.0 / 255);
+	m_clipperActor->GetProperty()->SetColor(161 * 1.0 / 255, 255 * 1.0 / 255, 20 * 1.0 / 255);
 	m_clipperActor->GetProperty()->SetOpacity(1.0);
 	m_clipperActor->VisibilityOff();
 
@@ -968,11 +1016,11 @@ void MainWindow::updateBoundaryCapsTable()
 			ui->tableWidgetDomain->rowCount() - 1,
 			4,
 			new QTableWidgetItem(QString::number(bc.radius)));
-	}
 
-	// disable edit function
-	for (int j = 2; j<4; j++)
-		ui->tableWidgetDomain->item(ui->tableWidgetDomain->rowCount() - 1, j)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+		// disable edit function
+		for (int j = 2; j<4; j++)
+			ui->tableWidgetDomain->item(i, j)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+	}
 }
 
 void MainWindow::renderBoundaryCapsDirection()

@@ -17,6 +17,7 @@
 #include "vtkSphereSource.h"
 #include <vtkCubeSource.h>
 #include <vtkCylinderSource.h>
+#include <vtkOutlineFilter.h>
 
 namespace Ui {
 	class MainWindow;
@@ -58,8 +59,10 @@ public slots:
 	void slotSurfaceCapping();
 	void slotSaveDomain();
 	void slotRemoveCap();
+	void slotRemoveAllCaps();
 	void slotBoundaryCapTypeChange(int);
 	void slotBoundaryCapTableItemChanged(QTableWidgetItem*);
+	void slotCurrentBoundaryCap();
 
 private slots:
 	void readSurfaceFileComplete();
@@ -74,6 +77,7 @@ private:
 	void updateCenterlineDataTable();
 	void createFirstBifurationPoint();
 	void createCurrentPickingPoint();
+	void createBoundaryCapBoundingBox();
 	void createClipper();
 	void clip(int);
 	void renderBoundaryCaps();
@@ -117,6 +121,9 @@ private:
 	// boundary caps
 	QList<vtkActor*> m_boundaryCapActors;
 	QList<vtkActor*> m_boundaryCapsDirectionActor;
+	vtkSmartPointer<vtkOutlineFilter> m_outlinerFilter = vtkSmartPointer<vtkOutlineFilter>::New();
+	vtkSmartPointer<vtkPolyDataMapper> m_outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_outlineActor = vtkSmartPointer<vtkActor>::New();
 };
 
 #endif
