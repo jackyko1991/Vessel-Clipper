@@ -17,6 +17,11 @@
 #include "vtkAppendPolyData.h"
 #include "vtkCleanPolyData.h"
 
+// json
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
 IO::IO(QObject* parent)
 {
 
@@ -409,35 +414,47 @@ void IO::WriteDomain()
 	cleaner->Update();
 
 	vtkSmartPointer<vtkSTLWriter> writer = vtkSmartPointer<vtkSTLWriter>::New();
-	QString cappedSurfacePath = this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName()+"_capped.stl");
-
-	writer->SetFileName(cappedSurfacePath.toStdString().c_str());
+	QFileInfo cappedSurfaceFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_capped.stl"));
+	writer->SetFileName(cappedSurfaceFile.absoluteFilePath().toStdString().c_str());
 	writer->SetInputData(cleaner->GetOutput());
 	writer->Update();
 
 	// boundary caps
-	QStringList boundaryCapsFilenameList;
+	QFileInfoList boundaryCapFileList;
 	for (int i = 0; i < m_boundaryCaps.size(); i++)
 	{
-		QString boundaryCapPath = this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() +"_" + m_boundaryCaps.at(i).name +".stl");
-		boundaryCapsFilenameList.append(boundaryCapPath);
-		writer->SetFileName(boundaryCapPath.toStdString().c_str());
+		QFileInfo boundaryCapFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_" + m_boundaryCaps.at(i).name + ".stl"));
+		boundaryCapFileList.append(boundaryCapFile);
+		writer->SetFileName(boundaryCapFile.absoluteFilePath().toStdString().c_str());
 		writer->SetInputData(m_boundaryCaps.at(i).polydata);
 		writer->Update();
 	}
 
 	// surface wall
-	writer->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_wall.stl").toStdString().c_str());
+	QFileInfo wallFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_wall.stl"));
+	writer->SetFileName(wallFile.absoluteFilePath().toStdString().c_str());
 	writer->SetInputData(m_surface);
 	writer->Update();
 
 	// centerline
 	vtkSmartPointer<vtkXMLPolyDataWriter> vtpWriter = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-	vtpWriter->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_centerline.vtp").toStdString().c_str());
+	QFileInfo centerlineFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_centerline.vtp"));
+	vtpWriter->SetFileName(centerlineFile.absoluteFilePath().toStdString().c_str());
 	vtpWriter->SetInputData(m_centerline);
 	vtpWriter->Update();
 
 	// domain json
+	json j; 
+	j["domain"]["filename"] = cappedSurfaceFile.fileName().toStdString();
+	j["wall"]["filename"] = wallFile.fileName().toStdString();
+	j["centerline"]["filename"] = centerlineFile.fileName().toStdString();
+	for (int i = 0; i < boundaryCapFileList.size(); i++)
+	{
+		j["boundary_" + std::to_string(i)]["filename"] = boundaryCapFileList.at(i).fileName().toStdString();
+	}
+	
+	std::ofstream o(m_domainFile.absoluteFilePath().toStdString());
+	o << std::setw(4) << j << std::endl;
 }
 
 QString IO::addUniqueSuffix(const QString & fileName)
