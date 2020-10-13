@@ -432,9 +432,10 @@ void IO::WriteDomain()
 	writer->Update();
 
 	// centerline
-	writer->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_centerline.stl").toStdString().c_str());
-	writer->SetInputData(m_centerline);
-	writer->Update();
+	vtkSmartPointer<vtkXMLPolyDataWriter> vtpWriter = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+	vtpWriter->SetFileName(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_centerline.vtp").toStdString().c_str());
+	vtpWriter->SetInputData(m_centerline);
+	vtpWriter->Update();
 
 	// domain json
 }

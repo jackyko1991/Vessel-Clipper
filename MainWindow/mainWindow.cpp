@@ -110,7 +110,6 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveSurface, &QPushButton::clicked, this, &MainWindow::slotSaveSurface);
 	connect(ui->pushButtonCapping, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
-	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
@@ -120,10 +119,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
 
 	// shortcut, remove for release
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -554,8 +553,6 @@ void MainWindow::slotBoundaryCapTypeChange(int index)
 
 void MainWindow::slotBoundaryCapTableItemChanged(QTableWidgetItem* item)
 {
-	std::cout << "change bc name" << std::endl;
-
 	// Block table signals
 	ui->tableWidgetDomain->blockSignals(true);
 
@@ -974,6 +971,9 @@ void MainWindow::renderBoundaryCaps()
 
 void MainWindow::updateBoundaryCapsTable()
 {
+	// Block table signals
+	ui->tableWidgetDomain->blockSignals(true);
+
 	// clear table first
 	ui->tableWidgetDomain->setRowCount(0);
 
@@ -1033,6 +1033,9 @@ void MainWindow::updateBoundaryCapsTable()
 		for (int j = 2; j<4; j++)
 			ui->tableWidgetDomain->item(i, j)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 	}
+
+	// Unblock signals
+	ui->tableWidgetDomain->blockSignals(false);
 }
 
 void MainWindow::renderBoundaryCapsDirection()
