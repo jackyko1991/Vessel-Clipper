@@ -452,8 +452,22 @@ void IO::WriteDomain()
 	for (int i = 0; i < boundaryCapFileList.size(); i++)
 	{
 		j["boundary_" + std::to_string(i)]["filename"] = boundaryCapFileList.at(i).fileName().toStdString();
-		j["boundary_" + std::to_string(i)]["coordinate"] = {0,0,0};
-		j["boundary_" + std::to_string(i)]["tangent"] = { 0,0,0 };
+		switch (m_boundaryCaps.at(i).type)
+		{
+			case BoundaryCapType::none:
+				j["boundary_" + std::to_string(i)]["type"] = "none";
+				break;
+			case BoundaryCapType::inlet:
+				j["boundary_" + std::to_string(i)]["type"] = "inlet";
+				break;
+			case BoundaryCapType::outlet:
+				j["boundary_" + std::to_string(i)]["type"] = "outlet";
+				break;
+		}
+		
+		j["boundary_" + std::to_string(i)]["coordinate"] = {m_boundaryCaps.at(i).center[0],m_boundaryCaps.at(i).center[1],m_boundaryCaps.at(i).center[2] };
+		j["boundary_" + std::to_string(i)]["tangent"] = { m_boundaryCaps.at(i).tangent[0],m_boundaryCaps.at(i).tangent[1],m_boundaryCaps.at(i).tangent[2] };
+		j["boundary_" + std::to_string(i)]["radius"] = m_boundaryCaps.at(i).radius;
 	}
 	
 	std::ofstream o(m_domainFile.absoluteFilePath().toStdString());

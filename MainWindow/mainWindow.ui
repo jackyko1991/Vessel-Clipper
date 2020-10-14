@@ -307,6 +307,61 @@
          <property name="currentIndex">
           <number>0</number>
          </property>
+         <widget class="QWidget" name="tab">
+          <attribute name="title">
+           <string>Centerline</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <item>
+            <widget class="QTableWidget" name="tableWidgetCenterlineSetting">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>200</height>
+              </size>
+             </property>
+             <column>
+              <property name="text">
+               <string>Point</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Type</string>
+              </property>
+             </column>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonSurfaceCappingCenterline">
+             <property name="text">
+              <string>Cap Surface for Centerline Define</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonRemoveCenterlineKeyPoint">
+             <property name="text">
+              <string>Remove Point</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonComputeCenterline">
+             <property name="text">
+              <string>Compute Centerline</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonComputeCenterline_5">
+             <property name="text">
+              <string>Save Centerline</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
          <widget class="QWidget" name="tab_3">
           <attribute name="title">
            <string>Clipping</string>
@@ -567,47 +622,6 @@
             <widget class="QPushButton" name="pushButtonResetCenterline">
              <property name="text">
               <string>Reset Centerline</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="tab">
-          <attribute name="title">
-           <string>Centerline</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_6">
-           <item>
-            <widget class="QTableWidget" name="tableWidgetCenterlineSetting">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>200</height>
-              </size>
-             </property>
-             <column>
-              <property name="text">
-               <string>Point</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Type</string>
-              </property>
-             </column>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushButtonRemoveCenterlineKeyPoint">
-             <property name="text">
-              <string>Remove Point</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushButtonComputeCenterline">
-             <property name="text">
-              <string>Compute Centerline</string>
              </property>
             </widget>
            </item>
@@ -1001,7 +1015,7 @@
            <item>
             <widget class="QPushButton" name="pushButtonCapping">
              <property name="text">
-              <string>Surface Capping</string>
+              <string>Caps Surface for Domain Define</string>
              </property>
             </widget>
            </item>

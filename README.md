@@ -8,3 +8,5 @@ Clip vessel surface with user input centerlines.
 
 ## To-do list
 - Add cylindrical clipper
+- Embed centerline calculation
+- Boundary extension
