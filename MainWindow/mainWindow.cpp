@@ -113,20 +113,16 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
-	connect(ui->pushButtonSaveDomain_2, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
 
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
 	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
-	connect(ui->tableWidgetDomain_2, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
-	connect(ui->tableWidgetDomain_2, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
-
 
 	// shortcut, remove for release
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()

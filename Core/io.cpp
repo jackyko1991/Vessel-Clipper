@@ -448,9 +448,12 @@ void IO::WriteDomain()
 	j["domain"]["filename"] = cappedSurfaceFile.fileName().toStdString();
 	j["wall"]["filename"] = wallFile.fileName().toStdString();
 	j["centerline"]["filename"] = centerlineFile.fileName().toStdString();
+	j["bifurcation_point"]["coordinate"] = { this->m_firstBifurcationPoint[0], this->m_firstBifurcationPoint[1], this->m_firstBifurcationPoint[2] };
 	for (int i = 0; i < boundaryCapFileList.size(); i++)
 	{
 		j["boundary_" + std::to_string(i)]["filename"] = boundaryCapFileList.at(i).fileName().toStdString();
+		j["boundary_" + std::to_string(i)]["coordinate"] = {0,0,0};
+		j["boundary_" + std::to_string(i)]["tangent"] = { 0,0,0 };
 	}
 	
 	std::ofstream o(m_domainFile.absoluteFilePath().toStdString());
