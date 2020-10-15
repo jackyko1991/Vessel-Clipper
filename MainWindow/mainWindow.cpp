@@ -1,4 +1,5 @@
 #include "mainWindow.h"
+#include "interactorStyleCenterline.h"
 
 // qt
 #include "QPushButton"
@@ -34,11 +35,28 @@
 #include "vtkCenterOfMass.h"
 #include "vtkArrowSource.h"
 #include "vtkUnstructuredGrid.h"
+#include "vtkTextActor.h"
+#include "vtkTextProperty.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
 	vtkObject::GlobalWarningDisplayOff();
 	ui->setupUi(this);
+
+	// qvtk widget start
+	ui->qvtkWidget->GetRenderWindow()->AddRenderer(m_renderer);
+
+	// interactor style
+	vtkSmartPointer<MouseInteractorStyleCenterline> style = vtkSmartPointer<MouseInteractorStyleCenterline>::New();
+	ui->qvtkWidget->GetRenderWindow()->GetInteractor()->SetInteractorStyle(style);
+
+	// text actors
+	vtkSmartPointer<vtkTextActor> textActor = vtkSmartPointer<vtkTextActor>::New();
+	textActor->SetInput("Press SPACE to Locate the Centerline Source/Target");
+	textActor->SetPosition(5, 5);
+	textActor->GetTextProperty()->SetFontSize(16);
+	textActor->GetTextProperty()->SetColor(23*1.0/255, 255*1.0/255, 58*1.0/255);
+	m_renderer->AddActor2D(textActor);
 
 	// io object
 	m_io = new IO;
@@ -66,9 +84,6 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// boundary caps table
 	ui->tableWidgetDomain->verticalHeader()->setVisible(false);
 	ui->tableWidgetDomain->setSelectionBehavior(QAbstractItemView::SelectRows);
-
-	// qvtk widget start
-	ui->qvtkWidget->GetRenderWindow()->AddRenderer(m_renderer);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -113,17 +128,21 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
+	connect(ui->pushButtonAddCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotAddCenterlineKeyPoint);
+
+	// centerline 
+	connect(ui->pushButtonSurfaceCappingCenterline, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
 	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
 
 	// shortcut, remove for release
-	ui->lineEditSurface->setText("Z:/data/intracranial");
-	ui->lineEditCenterline->setText("Z:/data/intracranial");
+	//ui->lineEditSurface->setText("Z:/data/intracranial");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial");
 
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
 	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
@@ -593,6 +612,13 @@ void MainWindow::slotCurrentBoundaryCap()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::slotAddCenterlineKeyPoint()
+{
+	double keyPoint[3] = { 0,0,0 };
+	m_io->AddCenterlineKeyPoint(keyPoint, 0);
+	this->updateCenterlineKeyPointsTable();
+}
+
 void MainWindow::slotExit()
 {
 	qApp->exit();
@@ -638,6 +664,11 @@ void MainWindow::renderFirstBifurcationPoint()
 	m_firstBifurcationSphereSource->SetCenter(point[0], point[1], point[2]);
 	m_firstBifurcationActor->VisibilityOn();
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::updateCenterlineKeyPointsTable()
+{
+	std::cout << "updateCenterlineKeyPointsTable" << std::endl;
 }
 
 void MainWindow::updateCenterlineDataTable()

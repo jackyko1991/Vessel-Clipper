@@ -63,6 +63,7 @@ public slots:
 	void slotBoundaryCapTypeChange(int);
 	void slotBoundaryCapTableItemChanged(QTableWidgetItem*);
 	void slotCurrentBoundaryCap();
+	void slotAddCenterlineKeyPoint();
 
 private slots:
 	void readSurfaceFileComplete();
@@ -74,6 +75,7 @@ private:
 	void renderSurface();
 	void renderCenterline();
 	void renderFirstBifurcationPoint();
+	void updateCenterlineKeyPointsTable();
 	void updateCenterlineDataTable();
 	void createFirstBifurationPoint();
 	void createCurrentPickingPoint();
@@ -124,6 +126,10 @@ private:
 	vtkSmartPointer<vtkOutlineFilter> m_outlinerFilter = vtkSmartPointer<vtkOutlineFilter>::New();
 	vtkSmartPointer<vtkPolyDataMapper> m_outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	vtkSmartPointer<vtkActor> m_outlineActor = vtkSmartPointer<vtkActor>::New();
+
+	// centerline picking
+	QList<vtkActor*> m_centerlineActors;
+
 };
 
 #endif

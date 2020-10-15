@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QFileInfo>
 #include <QVector>
+#include <QPair>
 
 // vtk
 #include "vtkSmartPointer.h"
@@ -44,6 +45,8 @@ public:
 	void SetBoundaryCap(int, BoundaryCap);
 	void SetWriteDomainPath(QString dir);
 	void WriteDomain();
+	void AddCenterlineKeyPoint(double*, bool);
+	QList<QPair<double*, bool>> GetCenterlineKeyPoints();
 
 	static QString addUniqueSuffix(const QString &fileName);
 
@@ -68,7 +71,7 @@ private:
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
 
 	int m_centerlineFirstBifurcationPointId = 0;
-
+	QList<QPair<double*, bool>> m_centerlineKeyPoints;
 };
 
 #endif // ! IO_H

@@ -432,7 +432,7 @@ void IO::WriteDomain()
 
 	// vessel surface
 	QFileInfo vesselFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_vessel.stl"));
-	writer->SetFileName(wallFilevesselFileabsoluteFilePath().toStdString().c_str());
+	writer->SetFileName(vesselFile.absoluteFilePath().toStdString().c_str());
 	writer->SetInputData(m_surface);
 	writer->Update();
 
@@ -472,6 +472,23 @@ void IO::WriteDomain()
 	
 	std::ofstream o(m_domainFile.absoluteFilePath().toStdString());
 	o << std::setw(4) << j << std::endl;
+}
+
+void IO::AddCenterlineKeyPoint(double *point, bool type)
+{
+	// type = 0 for source, type = 1 for target
+	QPair<double*, bool> keyPoint;
+	keyPoint.first = point;
+	keyPoint.second = type;
+
+	std::cout << "io::AddCenterlineKeyPoint: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
+	
+	m_centerlineKeyPoints.append(keyPoint);
+}
+
+QList<QPair<double*, bool>> IO::GetCenterlineKeyPoints()
+{
+	return m_centerlineKeyPoints;
 }
 
 QString IO::addUniqueSuffix(const QString & fileName)
