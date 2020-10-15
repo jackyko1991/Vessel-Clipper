@@ -430,9 +430,9 @@ void IO::WriteDomain()
 		writer->Update();
 	}
 
-	// surface wall
-	QFileInfo wallFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_wall.stl"));
-	writer->SetFileName(wallFile.absoluteFilePath().toStdString().c_str());
+	// vessel surface
+	QFileInfo vesselFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_vessel.stl"));
+	writer->SetFileName(wallFilevesselFileabsoluteFilePath().toStdString().c_str());
 	writer->SetInputData(m_surface);
 	writer->Update();
 
@@ -446,7 +446,7 @@ void IO::WriteDomain()
 	// domain json
 	json j; 
 	j["domain"]["filename"] = cappedSurfaceFile.fileName().toStdString();
-	j["wall"]["filename"] = wallFile.fileName().toStdString();
+	j["vessel"]["filename"] = vesselFile.fileName().toStdString();
 	j["centerline"]["filename"] = centerlineFile.fileName().toStdString();
 	j["bifurcation_point"]["coordinate"] = { this->m_firstBifurcationPoint[0], this->m_firstBifurcationPoint[1], this->m_firstBifurcationPoint[2] };
 	for (int i = 0; i < boundaryCapFileList.size(); i++)
@@ -502,7 +502,7 @@ QString IO::addUniqueSuffix(const QString & fileName)
 	for (int ii = 1; ; ii++) {
 		// Construct the new file name by adding the unique number between the
 		// first and second part.
-		ret = QString("%1 (%2)%3").arg(firstPart).arg(ii).arg(secondPart);
+		ret = QString("%1_%2_%3").arg(firstPart).arg(ii).arg(secondPart);
 		// If no file exists with the new name, return it.
 		if (!QFile::exists(ret)) {
 			return ret;

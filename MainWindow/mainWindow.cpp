@@ -119,8 +119,11 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
 
 	// shortcut, remove for release
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditSurface->setText("Z:/data/intracranial");
+	ui->lineEditCenterline->setText("Z:/data/intracranial");
+
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
 	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
