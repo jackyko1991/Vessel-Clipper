@@ -43,23 +43,24 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	vtkObject::GlobalWarningDisplayOff();
 	ui->setupUi(this);
 
+	// io object
+	m_io = new IO;
+
 	// qvtk widget start
 	ui->qvtkWidget->GetRenderWindow()->AddRenderer(m_renderer);
 
 	// interactor style
 	vtkSmartPointer<MouseInteractorStyleCenterline> style = vtkSmartPointer<MouseInteractorStyleCenterline>::New();
+	style->SetDataIo(m_io);
 	ui->qvtkWidget->GetRenderWindow()->GetInteractor()->SetInteractorStyle(style);
 
 	// text actors
 	vtkSmartPointer<vtkTextActor> textActor = vtkSmartPointer<vtkTextActor>::New();
-	textActor->SetInput("Press SPACE to Locate the Centerline Source/Target");
+	textActor->SetInput("Press G to Locate the Centerline Source/Target");
 	textActor->SetPosition(5, 5);
 	textActor->GetTextProperty()->SetFontSize(16);
 	textActor->GetTextProperty()->SetColor(23*1.0/255, 255*1.0/255, 58*1.0/255);
 	m_renderer->AddActor2D(textActor);
-
-	// io object
-	m_io = new IO;
 
 	// create objects for the label and progress bar
 	m_statusLabel = new QLabel(this);
@@ -84,6 +85,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// boundary caps table
 	ui->tableWidgetDomain->verticalHeader()->setVisible(false);
 	ui->tableWidgetDomain->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+	// centerline key point table
+	ui->tableWidgetCenterlineSetting->verticalHeader()->setVisible(false);
+	ui->tableWidgetCenterlineSetting->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -132,6 +137,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 	// centerline 
 	connect(ui->pushButtonSurfaceCappingCenterline, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
+	connect(m_io, SIGNAL(centerlineKeyPointUpdated()), this, SLOT(slotCenterlineKeyPointUpdated()));
 
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
@@ -462,31 +468,43 @@ void MainWindow::slotSurfaceCapping()
 		com->Update();
 
 		// get the center id
-		vtkSmartPointer<vtkKdTreePointLocator> kdTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
-		kdTree->SetDataSet(m_io->GetOriginalCenterline());
-		kdTree->Update();
-		int id = kdTree->FindClosestPoint(com->GetCenter());
-
-		// set the center
-		QVector<double> center(3);
-		center[0] = m_io->GetOriginalCenterline()->GetPoint(id)[0];
-		center[1] = m_io->GetOriginalCenterline()->GetPoint(id)[1];
-		center[2] = m_io->GetOriginalCenterline()->GetPoint(id)[2];
-		bc.center = center;
-
-		// set the radius
-		if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius") != nullptr)
-			bc.radius = m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius")->GetComponent(id,0);
-
-		// set the tangent
-		if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent") != nullptr)
+		if (m_io->GetOriginalCenterline()->GetNumberOfPoints() > 0)
 		{
-			QVector<double> tangent(3);
-			tangent[0] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 0);
-			tangent[1] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 1);
-			tangent[2] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 2);
+			vtkSmartPointer<vtkKdTreePointLocator> kdTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
+			kdTree->SetDataSet(m_io->GetOriginalCenterline());
+			kdTree->Update();
+			int id = kdTree->FindClosestPoint(com->GetCenter());
 
-			bc.tangent = tangent;
+			// set the center
+			QVector<double> center(3);
+			center[0] = m_io->GetOriginalCenterline()->GetPoint(id)[0];
+			center[1] = m_io->GetOriginalCenterline()->GetPoint(id)[1];
+			center[2] = m_io->GetOriginalCenterline()->GetPoint(id)[2];
+			bc.center = center;
+
+			// set the radius
+			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius") != nullptr)
+				bc.radius = m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius")->GetComponent(id, 0);
+
+			// set the tangent
+			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent") != nullptr)
+			{
+				QVector<double> tangent(3);
+				tangent[0] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 0);
+				tangent[1] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 1);
+				tangent[2] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 2);
+
+				bc.tangent = tangent;
+			}
+		}
+		else
+		{
+			// set the center
+			QVector<double> center(3);
+			center[0] = com->GetCenter()[0];
+			center[1] = com->GetCenter()[1];
+			center[2] = com->GetCenter()[2];
+			bc.center = center;
 		}
 
 		m_io->AddBoundaryCap(bc);
@@ -617,6 +635,31 @@ void MainWindow::slotAddCenterlineKeyPoint()
 	double keyPoint[3] = { 0,0,0 };
 	m_io->AddCenterlineKeyPoint(keyPoint, 0);
 	this->updateCenterlineKeyPointsTable();
+	// select last point
+	ui->tableWidgetCenterlineSetting->selectRow(ui->tableWidgetCenterlineSetting->rowCount() - 1);
+
+	this->renderCenterlineKeyPoints();
+}
+
+void MainWindow::slotCenterlineKeyPointTypeChanged(int index)
+{
+	std::cout << "aaa: " << index << std::endl;
+
+	for (int i = 0; i < ui->tableWidgetCenterlineSetting->rowCount(); i++)
+	{
+		QPair <double*, bool> keyPoint;
+		keyPoint.first = m_io->GetCenterlineKeyPoints().at(i).first;
+		keyPoint.second = !!index; // Marxismic way of casting int to bool
+
+		m_io->SetCenterlineKeyPoint(i, keyPoint);
+	}
+
+	this->renderCenterlineKeyPoints();
+}
+
+void MainWindow::slotCenterlineKeyPointUpdated()
+{
+	this->renderCenterlineKeyPoints();
 }
 
 void MainWindow::slotExit()
@@ -666,9 +709,82 @@ void MainWindow::renderFirstBifurcationPoint()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::renderCenterlineKeyPoints()
+{
+	// remove all previous actors from renderer first
+	for (int i = 0; i < m_centerlineKeyPointActors.size(); i++)
+	{
+		m_renderer->RemoveActor(m_centerlineKeyPointActors.at(i));
+	}
+	m_centerlineKeyPointActors.clear();
+
+	for (int i = 0; i < m_io->GetCenterlineKeyPoints().size(); i++)
+	{
+		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
+		source->SetCenter(m_io->GetCenterlineKeyPoints().at(i).first);
+
+		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+		mapper->SetInputConnection(source->GetOutputPort());
+
+		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+		actor->SetMapper(mapper);
+		switch (m_io->GetCenterlineKeyPoints().at(i).second)
+		{
+		case 0:
+			actor->GetProperty()->SetColor(255 / 255.0, 0 / 255.0, 0 / 255.0);
+			break;
+		case 1:
+			actor->GetProperty()->SetColor(0 / 255.0, 255 / 255.0, 0 / 255.0);
+			break;
+		}
+
+		m_centerlineKeyPointActors.append(actor);
+		m_renderer->AddActor(actor);
+	}
+
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::updateCenterlineKeyPointsTable()
 {
 	std::cout << "updateCenterlineKeyPointsTable" << std::endl;
+	// clear table
+	ui->tableWidgetCenterlineSetting->setRowCount(0);
+
+	for (int i = 0; i < m_io->GetCenterlineKeyPoints().size(); i++)
+	{
+		ui->tableWidgetCenterlineSetting->insertRow(ui->tableWidgetCenterlineSetting->rowCount());
+		
+		std::cout <<
+			m_io->GetCenterlineKeyPoints().at(i).first[0] << ", " <<
+			m_io->GetCenterlineKeyPoints().at(i).first[1] << ", " <<
+			m_io->GetCenterlineKeyPoints().at(i).first[2] << std::endl;
+
+		// point
+		ui->tableWidgetCenterlineSetting->setItem(
+			ui->tableWidgetCenterlineSetting->rowCount() - 1,
+			0,
+			new QTableWidgetItem(
+				QString::number(m_io->GetCenterlineKeyPoints().at(i).first[0]) + ", " +
+				QString::number(m_io->GetCenterlineKeyPoints().at(i).first[1]) + ", " +
+				QString::number(m_io->GetCenterlineKeyPoints().at(i).first[2])
+			));
+
+		// disable edit function
+		ui->tableWidgetCenterlineSetting->item(i, 0)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+		// type
+		QComboBox* combo = new QComboBox(ui->tableWidgetCenterlineSetting);
+		combo->addItem("Source");
+		combo->addItem("Target");
+		combo->setCurrentIndex(m_io->GetCenterlineKeyPoints().at(i).second);
+		ui->tableWidgetCenterlineSetting->setCellWidget(
+			ui->tableWidgetCenterlineSetting->rowCount() - 1,
+			1,
+			combo);
+		// combobox change
+		connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotCenterlineKeyPointTypeChanged);	
+	}
 }
 
 void MainWindow::updateCenterlineDataTable()
@@ -1150,6 +1266,8 @@ void MainWindow::readSurfaceFileComplete()
 
 		m_renderer->ResetCamera();
 		this->updateCenterlineDataTable();
+		ui->qvtkWidget->update();
+
 	}
 	else
 	{
@@ -1157,6 +1275,9 @@ void MainWindow::readSurfaceFileComplete()
 	}
 
 	m_statusProgressBar->setValue(100);
+
+	this->m_outlineActor->SetVisibility(0);
+	this->m_clipperActor->SetVisibility(0);
 
 	// unlock ui
 	this->enableUI(true);
@@ -1174,6 +1295,7 @@ void MainWindow::readCenterlineFileComplete()
 
 		m_renderer->ResetCamera();
 		this->updateCenterlineDataTable();
+		ui->qvtkWidget->update();
 	}
 	else
 	{

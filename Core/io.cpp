@@ -484,11 +484,31 @@ void IO::AddCenterlineKeyPoint(double *point, bool type)
 	std::cout << "io::AddCenterlineKeyPoint: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
 	
 	m_centerlineKeyPoints.append(keyPoint);
+
+	emit centerlineKeyPointUpdated();
 }
 
 QList<QPair<double*, bool>> IO::GetCenterlineKeyPoints()
 {
 	return m_centerlineKeyPoints;
+}
+
+void IO::SetCenterlineKeyPoint(int idx , QPair<double*, bool> pair)
+{
+	m_centerlineKeyPoints.replace(idx, pair);
+
+	std::cout << " IO::SetCenterlineKeyPoint" << std::endl;
+
+	for (int i = 0; i < m_centerlineKeyPoints.size(); i++)
+	{
+		std::cout << i << ": " << "("<< m_centerlineKeyPoints.at(i).first <<")"<<
+			m_centerlineKeyPoints.at(i).first[0] << ", " << 
+			m_centerlineKeyPoints.at(i).first[1] << ", " << 
+			m_centerlineKeyPoints.at(i).first[2] <<std::endl;
+
+	}
+
+	emit centerlineKeyPointUpdated();
 }
 
 QString IO::addUniqueSuffix(const QString & fileName)
@@ -519,7 +539,7 @@ QString IO::addUniqueSuffix(const QString & fileName)
 	for (int ii = 1; ; ii++) {
 		// Construct the new file name by adding the unique number between the
 		// first and second part.
-		ret = QString("%1_%2_%3").arg(firstPart).arg(ii).arg(secondPart);
+		ret = QString("%1_%2%3").arg(firstPart).arg(ii).arg(secondPart);
 		// If no file exists with the new name, return it.
 		if (!QFile::exists(ret)) {
 			return ret;

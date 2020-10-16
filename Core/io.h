@@ -47,6 +47,7 @@ public:
 	void WriteDomain();
 	void AddCenterlineKeyPoint(double*, bool);
 	QList<QPair<double*, bool>> GetCenterlineKeyPoints();
+	void SetCenterlineKeyPoint(int, QPair<double*, bool>);
 
 	static QString addUniqueSuffix(const QString &fileName);
 
@@ -56,6 +57,7 @@ signals:
 	void centerlineFileReadStatus(bool);
 	void surfaceFileWriteStatus(bool);
 	void centerlineFileWriteStatus(bool);
+	void centerlineKeyPointUpdated();
 
 private:
 	QFileInfo m_surfaceFile;

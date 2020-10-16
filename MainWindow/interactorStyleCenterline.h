@@ -1,6 +1,8 @@
 #ifndef INTERACTOR_STYLE_CENTERLINE_H
 #define INTERACTOR_STYLE_CENTERLINE_H
 
+#include "io.h"
+
 #include "vtkSmartPointer.h"
 #include "vtkInteractorStyleTrackballCamera.h"
 
@@ -12,9 +14,12 @@ public:
 
 	virtual void OnKeyPress();
 
-	void SetPickingPoint(double point[3]);
+	void SetPickingPoint(int);
+	void SetDataIo(IO*);
+
 private:
-	double* m_pickingPoint;
+	int m_index = -1;
+	IO* m_io;
 };
 
 #endif 
