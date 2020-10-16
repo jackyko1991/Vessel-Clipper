@@ -47,7 +47,7 @@ public:
 	void WriteDomain();
 	void AddCenterlineKeyPoint(double*, bool);
 	QList<QPair<double*, bool>> GetCenterlineKeyPoints();
-	void SetCenterlineKeyPoint(int, QPair<double*, bool>);
+	void SetCenterlineKeyPoint(int, QPair<double*, bool>&);
 
 	static QString addUniqueSuffix(const QString &fileName);
 

@@ -493,7 +493,7 @@ QList<QPair<double*, bool>> IO::GetCenterlineKeyPoints()
 	return m_centerlineKeyPoints;
 }
 
-void IO::SetCenterlineKeyPoint(int idx , QPair<double*, bool> pair)
+void IO::SetCenterlineKeyPoint(int idx , QPair<double*, bool> &pair)
 {
 	m_centerlineKeyPoints.replace(idx, pair);
 
