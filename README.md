@@ -5,20 +5,21 @@ Clip vessel surface with user input centerlines. This repository is a GUI versio
 - Centerline and geometry calculation
 - Clip user input vessel surfaces (.VTK, .VTP, .STL) with pre-defined centerline file (.VTP, .VTK).
 - Clipped surface enclosing (capping)
-- Output domain for CFD region definitions.
+- Output domain for CFD region definitions
+
+![alt text](./Doc/img/screencap.png "Vessel Clipper")
 
 ## Example Usages
-### Centerline Calculation
-### Surface Clipping
-### Boundary Extension
-### Domain Define for CFD simulation
+- Centerline Calculation
+- Surface Clipping
+- Boundary Extension
+- Domain Define for CFD simulation
 
 ## Pre-build binary
 
 ## Build from Source
 
 ### Known issue
-#### itkdouble-conversion
 
 ## To-do List
 - Add cylindrical clipper
