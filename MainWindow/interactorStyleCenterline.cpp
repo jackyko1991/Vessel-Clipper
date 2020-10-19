@@ -6,6 +6,7 @@
 #include <vtkPointPicker.h>
 #include "vtkRenderWindow.h"
 #include "vtkRendererCollection.h"
+#include <memory>
 
 void MouseInteractorStyleCenterline::OnKeyPress()
 {
@@ -14,7 +15,7 @@ void MouseInteractorStyleCenterline::OnKeyPress()
 
 	if (key == "g")
 	{
-		std::cout << "key pressed" << std::endl;
+		std::cout << "******************key pressed******************" << std::endl;
 
 		// try to get surface file
 		if (m_io->GetSurface()->GetNumberOfPoints() == 0)
@@ -43,22 +44,36 @@ void MouseInteractorStyleCenterline::OnKeyPress()
 			this->Interactor->GetEventPosition()[1],
 			0,  // always zero.
 			this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer());
+
 		double picked[3];
 		this->Interactor->GetPicker()->GetPickPosition(picked);
 
 		if (picked[0] == 0 && picked[1] == 0 && picked[2] == 0)
 			return;
 
-		std::cout << "picked point: " << picked[0] << ", " << picked[1] << ", "<< picked[2] << std::endl;
+		std::cout << "picked point: " << "(" <<  picked<<") " << picked[0] << ", " << picked[1] << ", "<< picked[2] << std::endl;
 
-		double picked2[3];
+		auto picked2 = std::make_unique<double[]>(3);
+
+		std::cout << "picked point2 before assign: " << "(" << picked2.get() << ")" << std::endl;
+
 		picked2[0] = picked[0];
 		picked2[1] = picked[1];
 		picked2[2] = picked[2];
 
-		QPair<double*, bool> keyPoint;
-		keyPoint.first = picked2;
+		std::cout << "picked point2 after assign: " << "(" << picked2.get() << ")" << std::endl;
+
+		// check if centerline keypoints has things
+		if (m_io->GetCenterlineKeyPoints().size() == 0)
+			return;
+
+		QPair<QVector<double>, bool> keyPoint;
+		keyPoint.first.append(picked[0]);
+		keyPoint.first.append(picked[1]);
+		keyPoint.first.append(picked[2]);
 		keyPoint.second = m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size()-1).second;
+
+		//std::cout << "keyPoint: " << "(" << keyPoint.first << ")" << std::endl;
 
 		m_io->SetCenterlineKeyPoint(m_io->GetCenterlineKeyPoints().size() - 1, keyPoint);
 	}

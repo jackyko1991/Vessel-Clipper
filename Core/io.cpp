@@ -474,30 +474,44 @@ void IO::WriteDomain()
 	o << std::setw(4) << j << std::endl;
 }
 
-void IO::AddCenterlineKeyPoint(double *point, bool type)
+void IO::AddCenterlineKeyPoint(QVector<double> point, bool type)
 {
-	// type = 0 for source, type = 1 for target
-	QPair<double*, bool> keyPoint;
-	keyPoint.first = point;
-	keyPoint.second = type;
-
 	std::cout << "io::AddCenterlineKeyPoint: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
+
+	// type = 0 for source, type = 1 for target
+	QPair<QVector<double>, bool> keyPoint;
+	keyPoint.first.append(point[0]);
+	keyPoint.first.append(point[1]);
+	keyPoint.first.append(point[2]);
+	keyPoint.second = type;
 	
 	m_centerlineKeyPoints.append(keyPoint);
 
 	emit centerlineKeyPointUpdated();
 }
 
-QList<QPair<double*, bool>> IO::GetCenterlineKeyPoints()
+QList<QPair<QVector<double>, bool>> IO::GetCenterlineKeyPoints()
 {
 	return m_centerlineKeyPoints;
 }
 
-void IO::SetCenterlineKeyPoint(int idx , QPair<double*, bool> &pair)
+void IO::SetCenterlineKeyPoint(int idx , QPair<QVector<double>, bool> pair)
 {
-	m_centerlineKeyPoints.replace(idx, pair);
+	//std::cout << "IO::SetCenterlineKeyPoint input : " << idx << " " << m_centerlineKeyPoints.at(idx).first[0] << std::endl;
+	//
+	//std::cout << "IO::SetCenterlineKeyPoint input before replace " << pair.first << std::endl;
 
-	std::cout << " IO::SetCenterlineKeyPoint" << std::endl;
+	//for (int i = 0; i < m_centerlineKeyPoints.size(); i++)
+	//{
+	//	std::cout << i << ": " << "(" << m_centerlineKeyPoints.at(i).first << ")" <<
+	//		m_centerlineKeyPoints.at(i).first[0] << ", " <<
+	//		m_centerlineKeyPoints.at(i).first[1] << ", " <<
+	//		m_centerlineKeyPoints.at(i).first[2] << std::endl;
+	//}
+	
+	m_centerlineKeyPoints.replace(idx, pair);
+	 
+	/*std::cout << "IO::SetCenterlineKeyPoint input after replace " << pair.first <<std::endl;
 
 	for (int i = 0; i < m_centerlineKeyPoints.size(); i++)
 	{
@@ -505,8 +519,7 @@ void IO::SetCenterlineKeyPoint(int idx , QPair<double*, bool> &pair)
 			m_centerlineKeyPoints.at(i).first[0] << ", " << 
 			m_centerlineKeyPoints.at(i).first[1] << ", " << 
 			m_centerlineKeyPoints.at(i).first[2] <<std::endl;
-
-	}
+	}*/
 
 	emit centerlineKeyPointUpdated();
 }

@@ -45,9 +45,9 @@ public:
 	void SetBoundaryCap(int, BoundaryCap);
 	void SetWriteDomainPath(QString dir);
 	void WriteDomain();
-	void AddCenterlineKeyPoint(double*, bool);
-	QList<QPair<double*, bool>> GetCenterlineKeyPoints();
-	void SetCenterlineKeyPoint(int, QPair<double*, bool>&);
+	void AddCenterlineKeyPoint(QVector<double>, bool);
+	QList<QPair<QVector<double>, bool>> GetCenterlineKeyPoints();
+	void SetCenterlineKeyPoint(int, QPair<QVector<double>, bool>);
 
 	static QString addUniqueSuffix(const QString &fileName);
 
@@ -73,7 +73,7 @@ private:
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
 
 	int m_centerlineFirstBifurcationPointId = 0;
-	QList<QPair<double*, bool>> m_centerlineKeyPoints;
+	QList<QPair<QVector<double>, bool>> m_centerlineKeyPoints;
 };
 
 #endif // ! IO_H

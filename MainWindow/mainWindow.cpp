@@ -632,7 +632,14 @@ void MainWindow::slotCurrentBoundaryCap()
 
 void MainWindow::slotAddCenterlineKeyPoint()
 {
-	double keyPoint[3] = { 0,0,0 };
+	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
+		return;
+
+	QVector<double> keyPoint;
+	keyPoint.append(m_io->GetSurface()->GetPoint(0)[0]);
+	keyPoint.append(m_io->GetSurface()->GetPoint(0)[1]);
+	keyPoint.append(m_io->GetSurface()->GetPoint(0)[2]);
+
 	m_io->AddCenterlineKeyPoint(keyPoint, 0);
 	this->updateCenterlineKeyPointsTable();
 	// select last point
@@ -643,13 +650,16 @@ void MainWindow::slotAddCenterlineKeyPoint()
 
 void MainWindow::slotCenterlineKeyPointTypeChanged(int index)
 {
-	std::cout << "aaa: " << index << std::endl;
-
 	for (int i = 0; i < ui->tableWidgetCenterlineSetting->rowCount(); i++)
 	{
-		QPair <double*, bool> keyPoint;
-		keyPoint.first = m_io->GetCenterlineKeyPoints().at(i).first;
-		keyPoint.second = !!index; // Marxismic way of casting int to bool
+		QPair <QVector<double>, bool> keyPoint;
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[0]);
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[1]);
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[2]);
+
+		QComboBox* combo = (QComboBox*)ui->tableWidgetCenterlineSetting->cellWidget(i, 1);
+
+		keyPoint.second = !!combo->currentIndex(); // Marxismic way of casting int to bool
 
 		m_io->SetCenterlineKeyPoint(i, keyPoint);
 	}
@@ -721,7 +731,10 @@ void MainWindow::renderCenterlineKeyPoints()
 	for (int i = 0; i < m_io->GetCenterlineKeyPoints().size(); i++)
 	{
 		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
-		source->SetCenter(m_io->GetCenterlineKeyPoints().at(i).first);
+		source->SetCenter(
+			m_io->GetCenterlineKeyPoints().at(i).first[0],
+			m_io->GetCenterlineKeyPoints().at(i).first[1],
+			m_io->GetCenterlineKeyPoints().at(i).first[2]);
 
 		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 		mapper->SetInputConnection(source->GetOutputPort());
