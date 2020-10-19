@@ -13,10 +13,8 @@ void MouseInteractorStyleCenterline::OnKeyPress()
 	vtkRenderWindowInteractor* rwi = this->Interactor;
 	std::string key = rwi->GetKeySym();
 
-	if (key == "g")
+	if (key == "g" || key=="G")
 	{
-		std::cout << "******************key pressed******************" << std::endl;
-
 		// try to get surface file
 		if (m_io->GetSurface()->GetNumberOfPoints() == 0)
 			return;
@@ -51,18 +49,6 @@ void MouseInteractorStyleCenterline::OnKeyPress()
 		if (picked[0] == 0 && picked[1] == 0 && picked[2] == 0)
 			return;
 
-		std::cout << "picked point: " << "(" <<  picked<<") " << picked[0] << ", " << picked[1] << ", "<< picked[2] << std::endl;
-
-		auto picked2 = std::make_unique<double[]>(3);
-
-		std::cout << "picked point2 before assign: " << "(" << picked2.get() << ")" << std::endl;
-
-		picked2[0] = picked[0];
-		picked2[1] = picked[1];
-		picked2[2] = picked[2];
-
-		std::cout << "picked point2 after assign: " << "(" << picked2.get() << ")" << std::endl;
-
 		// check if centerline keypoints has things
 		if (m_io->GetCenterlineKeyPoints().size() == 0)
 			return;
@@ -73,9 +59,34 @@ void MouseInteractorStyleCenterline::OnKeyPress()
 		keyPoint.first.append(picked[2]);
 		keyPoint.second = m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size()-1).second;
 
-		//std::cout << "keyPoint: " << "(" << keyPoint.first << ")" << std::endl;
+		m_io->SetCenterlineKeyPoint(m_io->GetCenterlineKeyPoints().size() - 1, keyPoint);
+	}
+	else if (key == "Tab")
+	{
+		QPair<QVector<double>, bool> keyPoint;
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size() - 1).first[0]);
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size() - 1).first[1]);
+		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size() - 1).first[2]);
+		keyPoint.second = !m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size() - 1).second;
 
 		m_io->SetCenterlineKeyPoint(m_io->GetCenterlineKeyPoints().size() - 1, keyPoint);
+	}
+	else if (key == "n" || key == "N")
+	{
+		if (m_io->GetSurface()->GetNumberOfPoints() == 0)
+			return;
+
+		QPair<QVector<double>, bool> keyPoint;
+		keyPoint.first.append(m_io->GetSurface()->GetPoint(0)[0]);
+		keyPoint.first.append(m_io->GetSurface()->GetPoint(0)[1]);
+		keyPoint.first.append(m_io->GetSurface()->GetPoint(0)[2]);
+
+		if (m_io->GetCenterlineKeyPoints().size() > 0)
+			keyPoint.second = m_io->GetCenterlineKeyPoints().at(m_io->GetCenterlineKeyPoints().size() - 1).second;
+		else
+			keyPoint.second = 0;
+
+		m_io->AddCenterlineKeyPoint(keyPoint.first, keyPoint.second);
 	}
 }
 

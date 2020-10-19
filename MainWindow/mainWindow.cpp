@@ -87,8 +87,8 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	ui->tableWidgetDomain->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// centerline key point table
-	ui->tableWidgetCenterlineSetting->verticalHeader()->setVisible(false);
-	ui->tableWidgetCenterlineSetting->setSelectionBehavior(QAbstractItemView::SelectRows);
+	ui->tableWidgetCenterlineKeyPoints->verticalHeader()->setVisible(false);
+	ui->tableWidgetCenterlineKeyPoints->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -104,7 +104,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
 	this->createClipper();
-	this->createBoundaryCapBoundingBox();
+	this->createOutlineBoundingBox();
 
 	// signal slot connections
 	connect(ui->pushButtonSurface, &QPushButton::clicked, this, &MainWindow::slotBrowseSurface);
@@ -133,11 +133,22 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
 	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
-	connect(ui->pushButtonAddCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotAddCenterlineKeyPoint);
 
 	// centerline 
+	connect(ui->pushButtonAddCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotAddCenterlineKeyPoint);
 	connect(ui->pushButtonSurfaceCappingCenterline, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(m_io, SIGNAL(centerlineKeyPointUpdated()), this, SLOT(slotCenterlineKeyPointUpdated()));
+	connect(ui->pushButtonRemoveCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveCenterlineKeyPoint);
+	connect(ui->pushButtonSaveCenterline_3, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputCenterline);
+	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
+
+	// clipping
+	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+
+	// extend
+
+	// domain
 
 	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
@@ -383,6 +394,9 @@ void MainWindow::slotResetCenterline()
 
 void MainWindow::slotSaveSurface()
 {
+	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
+		return;
+
 	QString fileName = QFileDialog::getSaveFileName(this,
 		tr("Save Surface File"), ui->lineEditSurface->text(), tr("Surface Files (*.stl *.vtk *.vtp)"));
 
@@ -394,13 +408,16 @@ void MainWindow::slotSaveSurface()
 
 void MainWindow::slotSaveCenterline()
 {
+	if (m_io->GetCenterline()->GetNumberOfPoints() == 0)
+		return;
+
 	QString fileName = QFileDialog::getSaveFileName(this,
 		tr("Save Centerline File"), ui->lineEditCenterline->text(), tr("Centerline Files (*.vtk *.vtp)"));
 
 	if (fileName.isNull())
 		return;
 
-	m_io->WriteSurface(fileName);
+	m_io->WriteCenterline(fileName);
 }
 
 void MainWindow::slotSurfaceCapping()
@@ -533,22 +550,32 @@ void MainWindow::slotSaveDomain()
 
 void MainWindow::slotRemoveCap()
 {
+	if (ui->tableWidgetDomain->currentRow() == -1)
+		return;
+
+	// id before remove
+	int idx = ui->tableWidgetDomain->currentRow();
+
 	// remove actors
-	m_renderer->RemoveActor(this->m_boundaryCapActors.at(ui->tableWidgetDomain->currentRow()));
-	m_renderer->RemoveActor(this->m_boundaryCapsDirectionActor.at(ui->tableWidgetDomain->currentRow()));
+	m_renderer->RemoveActor(this->m_boundaryCapActors.at(idx));
+	m_renderer->RemoveActor(this->m_boundaryCapsDirectionActor.at(idx));
 	
-	m_boundaryCapActors.removeAt(ui->tableWidgetDomain->currentRow());
-	m_boundaryCapsDirectionActor.removeAt(ui->tableWidgetDomain->currentRow());
+	m_boundaryCapActors.removeAt(idx);
+	m_boundaryCapsDirectionActor.removeAt(idx);
 
 	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
 	this->m_outlineMapper->SetInputData(polydata);
 	this->m_outlineActor->VisibilityOff();
 
-	m_io->RemoveBoundaryCap(ui->tableWidgetDomain->currentRow());
+	m_io->RemoveBoundaryCap(idx);
 
+	this->updateBoundaryCapsTable();
 	this->renderBoundaryCaps();
 	this->renderBoundaryCapsDirection();
-	this->updateBoundaryCapsTable();
+	
+
+	if (idx > 1)
+		this->ui->tableWidgetDomain->selectRow(idx-1);
 }
 
 void MainWindow::slotRemoveAllCaps()
@@ -643,21 +670,21 @@ void MainWindow::slotAddCenterlineKeyPoint()
 	m_io->AddCenterlineKeyPoint(keyPoint, 0);
 	this->updateCenterlineKeyPointsTable();
 	// select last point
-	ui->tableWidgetCenterlineSetting->selectRow(ui->tableWidgetCenterlineSetting->rowCount() - 1);
+	ui->tableWidgetCenterlineKeyPoints->selectRow(ui->tableWidgetCenterlineKeyPoints->rowCount() - 1);
 
 	this->renderCenterlineKeyPoints();
 }
 
 void MainWindow::slotCenterlineKeyPointTypeChanged(int index)
 {
-	for (int i = 0; i < ui->tableWidgetCenterlineSetting->rowCount(); i++)
+	for (int i = 0; i < ui->tableWidgetCenterlineKeyPoints->rowCount(); i++)
 	{
 		QPair <QVector<double>, bool> keyPoint;
 		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[0]);
 		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[1]);
 		keyPoint.first.append(m_io->GetCenterlineKeyPoints().at(i).first[2]);
 
-		QComboBox* combo = (QComboBox*)ui->tableWidgetCenterlineSetting->cellWidget(i, 1);
+		QComboBox* combo = (QComboBox*)ui->tableWidgetCenterlineKeyPoints->cellWidget(i, 1);
 
 		keyPoint.second = !!combo->currentIndex(); // Marxismic way of casting int to bool
 
@@ -669,7 +696,46 @@ void MainWindow::slotCenterlineKeyPointTypeChanged(int index)
 
 void MainWindow::slotCenterlineKeyPointUpdated()
 {
+	this->updateCenterlineKeyPointsTable();
 	this->renderCenterlineKeyPoints();
+}
+
+void MainWindow::slotRemoveCenterlineKeyPoint()
+{
+	if (ui->tableWidgetCenterlineKeyPoints->currentRow() == -1)
+		return;
+
+	// index before remove
+	int idx = ui->tableWidgetCenterlineKeyPoints->currentRow();
+
+	// remove actors
+	m_renderer->RemoveActor(this->m_centerlineKeyPointActors.at(idx));
+	m_centerlineKeyPointActors.removeAt(idx);
+	m_io->RemoveCenterlineKeyPoint(idx);
+
+	this->updateCenterlineKeyPointsTable();
+
+	this->renderCenterlineKeyPoints();
+
+	if (idx > 0)
+		this->ui->tableWidgetCenterlineKeyPoints->selectRow(idx - 1);
+}
+
+void MainWindow::slotComputCenterline()
+{
+}
+
+void MainWindow::slotCurrentCenterlineKeyPoint()
+{
+	if (ui->tableWidgetCenterlineKeyPoints->currentRow() < 0)
+	{
+		m_outlineActor->VisibilityOff();
+		return;
+	}
+
+	this->renderOutlineBoundingBox();
+
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::slotExit()
@@ -755,27 +821,23 @@ void MainWindow::renderCenterlineKeyPoints()
 		m_renderer->AddActor(actor);
 	}
 
+	this->renderOutlineBoundingBox();
+
 	ui->qvtkWidget->update();
 }
 
 void MainWindow::updateCenterlineKeyPointsTable()
 {
-	std::cout << "updateCenterlineKeyPointsTable" << std::endl;
 	// clear table
-	ui->tableWidgetCenterlineSetting->setRowCount(0);
+	ui->tableWidgetCenterlineKeyPoints->setRowCount(0);
 
 	for (int i = 0; i < m_io->GetCenterlineKeyPoints().size(); i++)
 	{
-		ui->tableWidgetCenterlineSetting->insertRow(ui->tableWidgetCenterlineSetting->rowCount());
-		
-		std::cout <<
-			m_io->GetCenterlineKeyPoints().at(i).first[0] << ", " <<
-			m_io->GetCenterlineKeyPoints().at(i).first[1] << ", " <<
-			m_io->GetCenterlineKeyPoints().at(i).first[2] << std::endl;
+		ui->tableWidgetCenterlineKeyPoints->insertRow(ui->tableWidgetCenterlineKeyPoints->rowCount());
 
 		// point
-		ui->tableWidgetCenterlineSetting->setItem(
-			ui->tableWidgetCenterlineSetting->rowCount() - 1,
+		ui->tableWidgetCenterlineKeyPoints->setItem(
+			ui->tableWidgetCenterlineKeyPoints->rowCount() - 1,
 			0,
 			new QTableWidgetItem(
 				QString::number(m_io->GetCenterlineKeyPoints().at(i).first[0]) + ", " +
@@ -784,15 +846,15 @@ void MainWindow::updateCenterlineKeyPointsTable()
 			));
 
 		// disable edit function
-		ui->tableWidgetCenterlineSetting->item(i, 0)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+		ui->tableWidgetCenterlineKeyPoints->item(i, 0)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
 
 		// type
-		QComboBox* combo = new QComboBox(ui->tableWidgetCenterlineSetting);
+		QComboBox* combo = new QComboBox(ui->tableWidgetCenterlineKeyPoints);
 		combo->addItem("Source");
 		combo->addItem("Target");
 		combo->setCurrentIndex(m_io->GetCenterlineKeyPoints().at(i).second);
-		ui->tableWidgetCenterlineSetting->setCellWidget(
-			ui->tableWidgetCenterlineSetting->rowCount() - 1,
+		ui->tableWidgetCenterlineKeyPoints->setCellWidget(
+			ui->tableWidgetCenterlineKeyPoints->rowCount() - 1,
 			1,
 			combo);
 		// combobox change
@@ -938,7 +1000,7 @@ void MainWindow::createCurrentPickingPoint()
 	m_renderer->AddActor(m_currentPickingActor);
 }
 
-void MainWindow::createBoundaryCapBoundingBox()
+void MainWindow::createOutlineBoundingBox()
 {
 	m_outlineActor->SetMapper(m_outlineMapper);
 	m_outlineActor->GetProperty()->SetColor(255 * 1.0 / 255, 255 * 1.0 / 255, 255 * 1.0 / 255);
@@ -1268,6 +1330,33 @@ void MainWindow::renderBoundaryCapsDirection()
 
 	ui->qvtkWidget->update();
 
+}
+
+void MainWindow::renderOutlineBoundingBox()
+{
+	// bounding box
+	if (ui->tableWidgetCenterlineKeyPoints->currentRow() >= 0)
+	{
+		// create input poly data
+		QVector<double> point = m_io->GetCenterlineKeyPoints().at(ui->tableWidgetCenterlineKeyPoints->currentRow()).first;
+		//std::cout << "slotCurrentCenterlineKeyPoint: "
+		//	<< ui->tableWidgetCenterlineKeyPoints->currentRow() << " " <<
+		//	point[0] << ", " << point[1] << ", " << point[2] << std::endl;
+
+		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
+		source->SetCenter(point[0], point[1], point[2]);
+		source->Update();
+
+		m_outlinerFilter->SetInputData(source->GetOutput());
+		m_outlinerFilter->Update();
+		m_outlineMapper->SetInputData(m_outlinerFilter->GetOutput());
+		m_outlineMapper->Update();
+		m_outlineActor->VisibilityOn();
+	}
+	else
+	{
+		m_outlineActor->VisibilityOff();
+	}
 }
 
 void MainWindow::readSurfaceFileComplete()

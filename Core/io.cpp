@@ -476,8 +476,6 @@ void IO::WriteDomain()
 
 void IO::AddCenterlineKeyPoint(QVector<double> point, bool type)
 {
-	std::cout << "io::AddCenterlineKeyPoint: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
-
 	// type = 0 for source, type = 1 for target
 	QPair<QVector<double>, bool> keyPoint;
 	keyPoint.first.append(point[0]);
@@ -522,6 +520,11 @@ void IO::SetCenterlineKeyPoint(int idx , QPair<QVector<double>, bool> pair)
 	}*/
 
 	emit centerlineKeyPointUpdated();
+}
+
+void IO::RemoveCenterlineKeyPoint(int index)
+{
+	m_centerlineKeyPoints.removeAt(index);
 }
 
 QString IO::addUniqueSuffix(const QString & fileName)

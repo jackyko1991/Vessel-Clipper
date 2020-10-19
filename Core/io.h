@@ -48,6 +48,7 @@ public:
 	void AddCenterlineKeyPoint(QVector<double>, bool);
 	QList<QPair<QVector<double>, bool>> GetCenterlineKeyPoints();
 	void SetCenterlineKeyPoint(int, QPair<QVector<double>, bool>);
+	void RemoveCenterlineKeyPoint(int);
 
 	static QString addUniqueSuffix(const QString &fileName);
 
