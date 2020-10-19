@@ -39,9 +39,13 @@
 #include "vtkTextActor.h"
 #include "vtkTextProperty.h"
 #include "vtkAppendPolyData.h"
+#include "vtkCleanPolyData.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
+#include "vtkvmtkCenterlineAttributesFilter.h"
+#include "vtkvmtkCenterlineGeometry.h"
+#include "vtkvmtkCenterlineBranchExtractor.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -747,7 +751,11 @@ void MainWindow::slotComputCenterline()
 		}
 		appendFilter->Update();
 
-		surface->DeepCopy(appendFilter->GetOutput());
+		vtkSmartPointer<vtkCleanPolyData> cleanFilter = vtkSmartPointer<vtkCleanPolyData>::New();
+		cleanFilter->SetInputData(appendFilter->GetOutput());
+		cleanFilter->Update();
+
+		surface->DeepCopy(cleanFilter->GetOutput());
 	}
 
 	// prepare key points
@@ -794,6 +802,59 @@ void MainWindow::slotComputCenterline()
 
 	// compute centerline
 	std::cout << "data check ok, start compute centerline..." << std::endl;
+
+	// centerline 
+	vtkSmartPointer<vtkvmtkPolyDataCenterlines> centerlinesFilter = vtkSmartPointer<vtkvmtkPolyDataCenterlines>::New();
+	centerlinesFilter->SetInputData(surface);
+	centerlinesFilter->SetSourceSeedIds(sourceIds);
+	centerlinesFilter->SetTargetSeedIds(targetIds);
+	centerlinesFilter->SetAppendEndPointsToCenterlines(false);
+	centerlinesFilter->SetCenterlineResampling(true);
+	centerlinesFilter->SetResamplingStepLength(1);
+	centerlinesFilter->SetRadiusArrayName("Radius");
+	centerlinesFilter->SetEdgeArrayName("Edge");
+	centerlinesFilter->SetEdgePCoordArrayName("PCoord");
+	centerlinesFilter->Update();
+
+	// geometry
+	// compute centerline attribute, geometry and branch splitting
+	vtkSmartPointer<vtkvmtkCenterlineAttributesFilter> attributeFilter = vtkSmartPointer<vtkvmtkCenterlineAttributesFilter>::New();
+	attributeFilter->SetInputData(centerlinesFilter->GetOutput());
+	attributeFilter->SetParallelTransportNormalsArrayName("ParallelTransportNormals");
+	attributeFilter->SetAbscissasArrayName("Abscissas");
+	attributeFilter->Update();
+
+	vtkSmartPointer<vtkvmtkCenterlineGeometry> geometryFilter = vtkSmartPointer<vtkvmtkCenterlineGeometry>::New();
+	geometryFilter->SetInputData(attributeFilter->GetOutput());
+	geometryFilter->SetFrenetBinormalArrayName("FrenetBinormal");
+	geometryFilter->SetFrenetNormalArrayName("FrenetNormal");
+	geometryFilter->SetFrenetTangentArrayName("FrenetTangent");
+	geometryFilter->SetLengthArrayName("Length");
+	geometryFilter->SetTorsionArrayName("Torsion");
+	geometryFilter->SetTortuosityArrayName("Tortuosity");
+	geometryFilter->SetCurvatureArrayName("Curvature");
+	geometryFilter->SetLineSmoothing(0);
+	geometryFilter->SetNumberOfSmoothingIterations(100);
+	geometryFilter->SetSmoothingFactor(0.1);
+	geometryFilter->SetGlobalWarningDisplay(1);
+	geometryFilter->Update();
+
+	vtkSmartPointer<vtkvmtkCenterlineBranchExtractor> branchExtractor = vtkSmartPointer<vtkvmtkCenterlineBranchExtractor>::New();
+	branchExtractor->SetInputData(geometryFilter->GetOutput());
+	branchExtractor->SetRadiusArrayName("Radius");
+	branchExtractor->SetCenterlineIdsArrayName("CenterlineIds");
+	branchExtractor->SetGroupIdsArrayName("GroupIds");
+	branchExtractor->SetBlankingArrayName("Blanking");
+	branchExtractor->SetTractIdsArrayName("TractIds");
+	branchExtractor->Update();
+
+	std::cout << "compute centerline ok" << std::endl;
+
+	m_io->GetOriginalCenterline()->DeepCopy(branchExtractor->GetOutput());
+	m_io->GetCenterline()->DeepCopy(branchExtractor->GetOutput());
+	this->renderCenterline();
+	this->updateCenterlineDataTable();
+	this->slotAutoLocateFirstBifurcation();
 }
 
 void MainWindow::slotCurrentCenterlineKeyPoint()
