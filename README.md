@@ -18,6 +18,17 @@ Clip vessel surface with user input centerlines. This repository is a GUI versio
 ## Pre-build binary
 
 ## Build from Source
+Toolchain dependency:
+- MSVC 2015 (Windows)
+- CMake 3.11 or above
+- Qt 5.9 or above
+- VTK 8.0
+- ITK
+- VMTK
+- nlohmann_json(if CMake version below 3.11)
+
+1. Complete CMake Medical Imaging Toolchain for Windows (MSVC2015).
+2. nlohmann_json will be automatically fetched if CMake version is >= 3.11. Older CMake version need to use pre-built toolchain, check usage in [official repo](https://github.com/nlohmann/json).
 
 ### Known issue
 
