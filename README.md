@@ -17,6 +17,9 @@ Clip vessel surface with user input centerlines. This repository is a GUI versio
 
 ## Build from Source
 
+### Known issue
+#### itkdouble-conversion
+
 ## To-do List
 - Add cylindrical clipper
 - Boundary extension

@@ -35,6 +35,14 @@ if(${MSVC})
 	)
 endif()
 
+# VMTK
+find_package(VMTK REQUIRED)
+include(${VMTK_USE_FILE})
+
+# ITK
+find_package(ITK REQUIRED)
+include(${ITK_USE_FILE})
+
 # VTK
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})
@@ -84,7 +92,7 @@ add_executable(
 	${MAIN_CXX}
 )
 
-target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES} ${VTK_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES} ${VTK_LIBRARIES} ${VMTK_LIBRARIES})
 
 qt5_use_modules(${PROJECT_NAME} Widgets)
 

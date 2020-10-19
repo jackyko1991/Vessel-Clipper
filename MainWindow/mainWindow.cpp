@@ -12,6 +12,7 @@
 #include "QDoubleSpinBox"
 #include "QTableWidget"
 #include "QComboBox"
+#include <QMessageBox>
 
 // vtk
 #include "QVTKWidget.h"
@@ -37,6 +38,10 @@
 #include "vtkUnstructuredGrid.h"
 #include "vtkTextActor.h"
 #include "vtkTextProperty.h"
+#include "vtkAppendPolyData.h"
+
+// vmtk
+#include "vtkvmtkPolyDataCenterlines.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -723,6 +728,72 @@ void MainWindow::slotRemoveCenterlineKeyPoint()
 
 void MainWindow::slotComputCenterline()
 {
+	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
+		return;
+
+	// merge boundary cap to the surface
+	vtkSmartPointer<vtkPolyData> surface = vtkSmartPointer<vtkPolyData>::New();
+	surface->DeepCopy(m_io->GetSurface());
+
+	// append boundary cap files
+	if (m_io->GetBoundaryCaps().size() > 0)
+	{
+		vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
+		appendFilter->SetInputData(surface);
+
+		for (int i = 0; i < m_io->GetBoundaryCaps().size(); i++)
+		{
+			appendFilter->AddInputData(m_io->GetBoundaryCaps().at(i).polydata);
+		}
+		appendFilter->Update();
+
+		surface->DeepCopy(appendFilter->GetOutput());
+	}
+
+	// prepare key points
+	vtkSmartPointer<vtkKdTreePointLocator> kDTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
+	kDTree->SetDataSet(surface);
+	kDTree->BuildLocator();
+
+	vtkSmartPointer<vtkIdList> sourceIds = vtkSmartPointer<vtkIdList>::New();
+	vtkSmartPointer<vtkIdList> targetIds = vtkSmartPointer<vtkIdList>::New();
+
+	for (int i = 0; i < m_io->GetCenterlineKeyPoints().size(); i++)
+	{
+		QVector<double> point = m_io->GetCenterlineKeyPoints().at(i).first;
+		double point_[3];
+		point_[0] = point[0];
+		point_[1] = point[1];
+		point_[2] = point[2];
+		vtkIdType iD = kDTree->FindClosestPoint(point_);
+		
+		switch (m_io->GetCenterlineKeyPoints().at(i).second)
+		{
+		case 0:
+			sourceIds->InsertNextId(iD);
+			break;
+		case 1:
+			targetIds->InsertNextId(iD);
+			break;
+		}
+	}
+
+	// error window
+	if (sourceIds->GetNumberOfIds() == 0 || sourceIds->GetNumberOfIds() == 0)
+	{
+		QMessageBox msgBox;
+		msgBox.setWindowTitle("Compute Centerline");
+		msgBox.setText("Invalid number of centerline sources/ targets.");
+		msgBox.setInformativeText("At least one source point and one target point should be setted.");
+		msgBox.setStandardButtons(QMessageBox::Ok);
+		msgBox.setIcon(QMessageBox::Warning);
+		int ret = msgBox.exec();
+
+		return;
+	}
+
+	// compute centerline
+	std::cout << "data check ok, start compute centerline..." << std::endl;
 }
 
 void MainWindow::slotCurrentCenterlineKeyPoint()
