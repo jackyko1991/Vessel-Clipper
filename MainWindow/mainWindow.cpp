@@ -142,7 +142,6 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
-	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
 
 	// centerline 
 	connect(ui->pushButtonAddCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotAddCenterlineKeyPoint);
@@ -159,15 +158,19 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// extend
 
 	// domain
-
-	// domain table text change
 	connect(ui->tableWidgetDomain, &QTableWidget::itemChanged, this, &MainWindow::slotBoundaryCapTableItemChanged);
 	connect(ui->tableWidgetDomain, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentBoundaryCap);
+	connect(ui->pushButtonSaveDomain, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
+
+	// fiducial
+	connect(ui->pushButtonAddFiducial, &QPushButton::clicked, this, &MainWindow::slotAddFiducial);
+	connect(ui->pushButtonRemoveFiducial, &QPushButton::clicked, this, &MainWindow::slotRemoveFiducial);
+	connect(ui->tableWidgetFiducial, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentFiducial);
+	connect(ui->pushButtonSaveDomain_3, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
 
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
@@ -871,6 +874,59 @@ void MainWindow::slotCurrentCenterlineKeyPoint()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::slotAddFiducial()
+{
+	int current_row = ui->tableWidgetCenterline->currentRow();
+	if (current_row < 0 || m_io->GetCenterline()->GetNumberOfPoints() == 0)
+		return;
+
+	QVector<double> point(3);
+	point[0] = m_io->GetCenterline()->GetPoint(current_row)[0];
+	point[1] = m_io->GetCenterline()->GetPoint(current_row)[1];
+	point[2] = m_io->GetCenterline()->GetPoint(current_row)[2];
+
+	m_io->AddFiducial(point,FiducialType::Stenosis);
+
+	this->updateFiducialTable();
+	m_currentPickingActor->VisibilityOff();
+	this->renderFiducial();
+}
+
+void MainWindow::slotFiducialTypeChanged()
+{
+	if (ui->tableWidgetFiducial->currentRow() < 0)
+	{
+		m_outlineActor->VisibilityOff();
+		return;
+	}
+
+	this->renderOutlineBoundingBox();
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotRemoveFiducial()
+{
+	if (ui->tableWidgetFiducial->currentRow() < 0)
+		return;
+	m_io->RemoveFiducial(ui->tableWidgetFiducial->currentRow());
+	this->updateFiducialTable();
+	this->renderFiducial();
+}
+
+void MainWindow::slotCurrentFiducial()
+{
+	if (ui->tableWidgetFiducial->currentRow() < 0)
+	{
+		m_outlineActor->VisibilityOff();
+		return;
+	}
+
+	this->renderOutlineBoundingBox();
+
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::slotExit()
 {
 	qApp->exit();
@@ -1096,6 +1152,13 @@ void MainWindow::updateCenterlineDataTable()
 			for (int j = 0; j<8; j++)
 				ui->tableWidgetCenterline->item(ui->tableWidgetCenterline->rowCount() - 1, j)->setData(Qt::BackgroundRole, QColor(255, 110, 110));
 		}
+		else
+		{
+			for (int j = 0; j<8; j++)
+				ui->tableWidgetCenterline->item(ui->tableWidgetCenterline->rowCount() - 1, j)->setData(Qt::BackgroundRole, QColor(255, 255, 255));
+
+		}
+
 	}
 }
 
@@ -1472,9 +1535,21 @@ void MainWindow::renderOutlineBoundingBox()
 	{
 		// create input poly data
 		QVector<double> point = m_io->GetCenterlineKeyPoints().at(ui->tableWidgetCenterlineKeyPoints->currentRow()).first;
-		//std::cout << "slotCurrentCenterlineKeyPoint: "
-		//	<< ui->tableWidgetCenterlineKeyPoints->currentRow() << " " <<
-		//	point[0] << ", " << point[1] << ", " << point[2] << std::endl;
+
+		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
+		source->SetCenter(point[0], point[1], point[2]);
+		source->Update();
+
+		m_outlinerFilter->SetInputData(source->GetOutput());
+		m_outlinerFilter->Update();
+		m_outlineMapper->SetInputData(m_outlinerFilter->GetOutput());
+		m_outlineMapper->Update();
+		m_outlineActor->VisibilityOn();
+	}
+	else if ((ui->tableWidgetFiducial->currentRow() >= 0))
+	{
+		// create input poly data
+		QVector<double> point = m_io->GetFiducial().at(ui->tableWidgetFiducial->currentRow()).first;
 
 		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
 		source->SetCenter(point[0], point[1], point[2]);
@@ -1490,6 +1565,84 @@ void MainWindow::renderOutlineBoundingBox()
 	{
 		m_outlineActor->VisibilityOff();
 	}
+}
+
+void MainWindow::updateFiducialTable()
+{
+	// clear table
+	ui->tableWidgetFiducial->setRowCount(0);
+
+	for (int i = 0; i < m_io->GetFiducial().size(); i++)
+	{
+		ui->tableWidgetFiducial->insertRow(ui->tableWidgetFiducial->rowCount());
+
+		// point
+		ui->tableWidgetFiducial->setItem(
+			ui->tableWidgetFiducial->rowCount() - 1,
+			0,
+			new QTableWidgetItem(
+				QString::number(m_io->GetFiducial().at(i).first[0]) + ", " +
+				QString::number(m_io->GetFiducial().at(i).first[1]) + ", " +
+				QString::number(m_io->GetFiducial().at(i).first[2])
+			));
+
+		// disable edit function
+		ui->tableWidgetFiducial->item(i, 0)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+		// type
+		QComboBox* combo = new QComboBox(ui->tableWidgetFiducial);
+		combo->addItem("Stenosis");
+		combo->addItem("Bifurcation");
+		combo->addItem("Others");
+		combo->setCurrentIndex(m_io->GetFiducial().at(i).second);
+		ui->tableWidgetFiducial->setCellWidget(
+			ui->tableWidgetFiducial->rowCount() - 1,
+			1,
+			combo);
+		// combobox change
+		connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotFiducialTypeChanged);
+	}
+}
+
+void MainWindow::renderFiducial()
+{
+	// remove all previous actors from renderer first
+	for (int i = 0; i < m_fiducialActors.size(); i++)
+	{
+		m_renderer->RemoveActor(m_fiducialActors.at(i));
+	}
+	m_fiducialActors.clear();
+
+	for (int i = 0; i < m_io->GetFiducial().size(); i++)
+	{
+		vtkSmartPointer<vtkSphereSource> source = vtkSmartPointer<vtkSphereSource>::New();
+		source->SetCenter(
+			m_io->GetFiducial().at(i).first[0],
+			m_io->GetFiducial().at(i).first[1],
+			m_io->GetFiducial().at(i).first[2]);
+
+		vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+		mapper->SetInputConnection(source->GetOutputPort());
+
+		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+		actor->SetMapper(mapper);
+		//switch (m_io->GetCenterlineKeyPoints().at(i).second)
+		//{
+		//case 0:
+		//	actor->GetProperty()->SetColor(255 / 255.0, 0 / 255.0, 0 / 255.0);
+		//	break;
+		//case 1:
+		//	actor->GetProperty()->SetColor(0 / 255.0, 255 / 255.0, 0 / 255.0);
+		//	break;
+		//}
+		actor->GetProperty()->SetColor(113 / 255.0, 0 / 255.0, 125 / 255.0);
+		m_fiducialActors.append(actor);
+		m_renderer->AddActor(actor);
+	}
+
+	this->renderOutlineBoundingBox();
+
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::readSurfaceFileComplete()

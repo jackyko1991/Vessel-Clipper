@@ -74,6 +74,12 @@ public slots:
 	void slotComputCenterline();
 	void slotCurrentCenterlineKeyPoint();
 
+	// fiducial
+	void slotAddFiducial();
+	void slotFiducialTypeChanged();
+	void slotRemoveFiducial();
+	void slotCurrentFiducial();
+
 private slots:
 	void readSurfaceFileComplete();
 	void readCenterlineFileComplete();
@@ -96,6 +102,8 @@ private:
 	void updateBoundaryCapsTable();
 	void renderBoundaryCapsDirection();
 	void renderOutlineBoundingBox();
+	void updateFiducialTable();
+	void renderFiducial();
 
 	IO* m_io;
 
@@ -141,6 +149,8 @@ private:
 	// centerline keypoints
 	QList<vtkActor*> m_centerlineKeyPointActors;
 
+	// fiducials
+	QList<vtkActor*> m_fiducialActors;
 };
 
 #endif

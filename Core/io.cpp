@@ -320,6 +320,9 @@ QVector<double> IO::GetCenterlineFirstBifurcationPoint()
 
 void IO::updateCenterlineFirstBifurcationPointId()
 {
+	if (m_centerline->GetNumberOfPoints() == 0)
+		return;
+
 	// update first bifurcation point id
 	vtkSmartPointer<vtkKdTreePointLocator> kdTree = vtkSmartPointer<vtkKdTreePointLocator>::New();
 	kdTree->SetDataSet(m_centerline);
@@ -495,29 +498,7 @@ QList<QPair<QVector<double>, bool>> IO::GetCenterlineKeyPoints()
 
 void IO::SetCenterlineKeyPoint(int idx , QPair<QVector<double>, bool> pair)
 {
-	//std::cout << "IO::SetCenterlineKeyPoint input : " << idx << " " << m_centerlineKeyPoints.at(idx).first[0] << std::endl;
-	//
-	//std::cout << "IO::SetCenterlineKeyPoint input before replace " << pair.first << std::endl;
-
-	//for (int i = 0; i < m_centerlineKeyPoints.size(); i++)
-	//{
-	//	std::cout << i << ": " << "(" << m_centerlineKeyPoints.at(i).first << ")" <<
-	//		m_centerlineKeyPoints.at(i).first[0] << ", " <<
-	//		m_centerlineKeyPoints.at(i).first[1] << ", " <<
-	//		m_centerlineKeyPoints.at(i).first[2] << std::endl;
-	//}
-	
 	m_centerlineKeyPoints.replace(idx, pair);
-	 
-	/*std::cout << "IO::SetCenterlineKeyPoint input after replace " << pair.first <<std::endl;
-
-	for (int i = 0; i < m_centerlineKeyPoints.size(); i++)
-	{
-		std::cout << i << ": " << "("<< m_centerlineKeyPoints.at(i).first <<")"<<
-			m_centerlineKeyPoints.at(i).first[0] << ", " << 
-			m_centerlineKeyPoints.at(i).first[1] << ", " << 
-			m_centerlineKeyPoints.at(i).first[2] <<std::endl;
-	}*/
 
 	emit centerlineKeyPointUpdated();
 }
@@ -525,6 +506,32 @@ void IO::SetCenterlineKeyPoint(int idx , QPair<QVector<double>, bool> pair)
 void IO::RemoveCenterlineKeyPoint(int index)
 {
 	m_centerlineKeyPoints.removeAt(index);
+}
+
+void IO::AddFiducial(QVector<double> point, FiducialType type)
+{
+	QPair<QVector<double>, FiducialType> fiducial;
+	fiducial.first.append(point[0]);
+	fiducial.first.append(point[1]);
+	fiducial.first.append(point[2]);
+	fiducial.second = type;
+
+	m_fiducial.append(fiducial);
+}
+
+void IO::RemoveFiducial(int index)
+{
+	m_fiducial.removeAt(index);
+}
+
+void IO::SetFiducial(int idx, QPair<QVector<double>, FiducialType> pair)
+{
+	m_fiducial.replace(idx, pair);
+}
+
+QList<QPair<QVector<double>, FiducialType>> IO::GetFiducial()
+{
+	return m_fiducial;
 }
 
 QString IO::addUniqueSuffix(const QString & fileName)

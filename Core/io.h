@@ -13,6 +13,8 @@
 
 #include "boundaryCaps.h"
 
+enum FiducialType {Stenosis, Bifurcation, Others};
+
 class IO : public QObject
 {
 	Q_OBJECT
@@ -49,6 +51,10 @@ public:
 	QList<QPair<QVector<double>, bool>> GetCenterlineKeyPoints();
 	void SetCenterlineKeyPoint(int, QPair<QVector<double>, bool>);
 	void RemoveCenterlineKeyPoint(int);
+	void AddFiducial(QVector<double>, FiducialType);
+	void RemoveFiducial(int);
+	void SetFiducial(int, QPair<QVector<double>, FiducialType>);
+	QList<QPair<QVector<double>, FiducialType>> GetFiducial();
 
 	static QString addUniqueSuffix(const QString &fileName);
 
@@ -66,6 +72,7 @@ private:
 	QFileInfo m_domainFile;
 	void updateCenterlineFirstBifurcationPointId();
 	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
+	int m_centerlineFirstBifurcationPointId = 0;
 	QList<BoundaryCap> m_boundaryCaps;
 
 	vtkSmartPointer<vtkPolyData> m_original_surface = vtkSmartPointer<vtkPolyData>::New();
@@ -73,8 +80,8 @@ private:
 	vtkSmartPointer<vtkPolyData> m_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
 
-	int m_centerlineFirstBifurcationPointId = 0;
 	QList<QPair<QVector<double>, bool>> m_centerlineKeyPoints;
+	QList<QPair<QVector<double>, FiducialType>> m_fiducial;
 };
 
 #endif // ! IO_H
