@@ -50,6 +50,10 @@ include(${VTK_USE_FILE})
 # QT
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
+# icon
+qt5_add_resources(RCC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/resources.qrc")
+set(WINDOWS_RESOURCE_PATH  ${CMAKE_CURRENT_SOURCE_DIR}/Resources/win.rc)
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 # # # # # # # # # # # # # # # # # LIBRARIES # # # # # # # # # # # # # # # # # #  
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
@@ -90,6 +94,8 @@ add_executable(
 	${PROJECT_NAME}
 	MACOSX_BUNDLE
 	${MAIN_CXX}
+	${RCC_SOURCES}
+	${WINDOWS_RESOURCE_PATH}
 )
 
 target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES} ${VTK_LIBRARIES} ${VMTK_LIBRARIES})

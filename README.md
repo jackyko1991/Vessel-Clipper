@@ -19,7 +19,7 @@ Clip vessel surface with user input centerlines. This repository is a GUI versio
 
 ## Build from Source
 Toolchain dependency:
-- MSVC 2015 (Windows)
+- MSVC 2015 **Update 3**(Windows)
 - CMake 3.11 or above
 - Qt 5.9 or above
 - VTK 8.0
@@ -31,6 +31,7 @@ Toolchain dependency:
 2. nlohmann_json will be automatically fetched if CMake version is >= 3.11. Older CMake version need to use pre-built toolchain, check usage in [official repo](https://github.com/nlohmann/json).
 
 ### Known issue
+- nlohmann_json is picky with C++ compilers. For MSVC 2015 users, make sure version is using Update 3.
 
 ## To-do List
 - Add cylindrical clipper

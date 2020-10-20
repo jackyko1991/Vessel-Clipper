@@ -49,6 +49,7 @@
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
+	setWindowIcon(QIcon(":icon/icon.ico"));
 	vtkObject::GlobalWarningDisplayOff();
 	ui->setupUi(this);
 
