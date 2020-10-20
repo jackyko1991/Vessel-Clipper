@@ -472,6 +472,23 @@ void IO::WriteDomain()
 		j["boundary_" + std::to_string(i)]["tangent"] = { m_boundaryCaps.at(i).tangent[0],m_boundaryCaps.at(i).tangent[1],m_boundaryCaps.at(i).tangent[2] };
 		j["boundary_" + std::to_string(i)]["radius"] = m_boundaryCaps.at(i).radius;
 	}
+	for (int i = 0; i < m_fiducial.size(); i++)
+	{
+		j["fiducial_" + std::to_string(i)]["coordinate"] = { m_fiducial.at(i).first[0], m_fiducial.at(i).first[1], m_fiducial.at(i).first[2] };
+		switch (m_fiducial.at(i).second)
+		{
+		case FiducialType::Stenosis:
+			j["fiducial_" + std::to_string(i)]["type"] = "Stenosis";
+			break;
+		case FiducialType::Bifurcation:
+			j["fiducial_" + std::to_string(i)]["type"] = "Bifurcation";
+			break;
+		case FiducialType::Others:
+			j["fiducial_" + std::to_string(i)]["type"] = "Others";
+			break;
+		}
+	}
+
 	
 	std::ofstream o(m_domainFile.absoluteFilePath().toStdString());
 	o << std::setw(4) << j << std::endl;
