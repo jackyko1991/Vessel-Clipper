@@ -36,7 +36,6 @@ Toolchain dependency:
 ## To-do List
 - Add cylindrical clipper
 - Boundary extension
-- Fiducial points
 
 ## References
 

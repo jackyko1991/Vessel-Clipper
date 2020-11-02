@@ -71,6 +71,7 @@ public slots:
 	void slotCenterlineKeyPointTypeChanged(int);
 	void slotCenterlineKeyPointUpdated();
 	void slotRemoveCenterlineKeyPoint();
+	void slotRemoveAllCenterlineKeyPoint();
 	void slotComputCenterline();
 	void slotCurrentCenterlineKeyPoint();
 

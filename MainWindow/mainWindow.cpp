@@ -148,6 +148,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSurfaceCappingCenterline, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(m_io, SIGNAL(centerlineKeyPointUpdated()), this, SLOT(slotCenterlineKeyPointUpdated()));
 	connect(ui->pushButtonRemoveCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveCenterlineKeyPoint);
+	connect(ui->pushButtonRemoveAllCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCenterlineKeyPoint)
 	connect(ui->pushButtonSaveCenterline_3, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputCenterline);
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
@@ -169,10 +170,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveDomain_3, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
 
 	// shortcut, remove for release
-	//ui->lineEditSurface->setText("Z:/data/intracranial");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	ui->lineEditSurface->setText("Z:/data/intracranial");
+	ui->lineEditCenterline->setText("Z:/data/intracranial");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
 	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
@@ -734,10 +735,31 @@ void MainWindow::slotRemoveCenterlineKeyPoint()
 		this->ui->tableWidgetCenterlineKeyPoints->selectRow(idx - 1);
 }
 
+void MainWindow::slotRemoveAllCenterlineKeyPoint()
+{
+	if (ui->tableWidgetCenterlineKeyPoints->currentRow() == -1)
+		return;
+
+	// remove actors
+	for (int i; i < m_centerlineKeyPointActors.size(); i++)
+	{
+		m_renderer->RemoveActor(this->m_centerlineKeyPointActors.at(i));
+		m_centerlineKeyPointActors.removeAt(i);
+		m_io->RemoveCenterlineKeyPoint(i);
+	}
+
+	this->updateCenterlineKeyPointsTable();
+	this->renderCenterlineKeyPoints();
+}
+
 void MainWindow::slotComputCenterline()
 {
 	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
 		return;
+
+	QMessageBox *msg = new QMessageBox(this);
+	msg->setText("Computing Centerline");
+	msg->exec();
 
 	// merge boundary cap to the surface
 	vtkSmartPointer<vtkPolyData> surface = vtkSmartPointer<vtkPolyData>::New();
@@ -859,6 +881,8 @@ void MainWindow::slotComputCenterline()
 	this->renderCenterline();
 	this->updateCenterlineDataTable();
 	this->slotAutoLocateFirstBifurcation();
+
+	msg->close();
 }
 
 void MainWindow::slotCurrentCenterlineKeyPoint()
