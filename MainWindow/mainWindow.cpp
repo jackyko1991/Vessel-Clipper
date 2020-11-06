@@ -148,7 +148,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSurfaceCappingCenterline, &QPushButton::clicked, this, &MainWindow::slotSurfaceCapping);
 	connect(m_io, SIGNAL(centerlineKeyPointUpdated()), this, SLOT(slotCenterlineKeyPointUpdated()));
 	connect(ui->pushButtonRemoveCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveCenterlineKeyPoint);
-	connect(ui->pushButtonRemoveAllCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCenterlineKeyPoint)
+	connect(ui->pushButtonRemoveAllCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCenterlineKeyPoint);
 	connect(ui->pushButtonSaveCenterline_3, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputCenterline);
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
@@ -757,9 +757,10 @@ void MainWindow::slotComputCenterline()
 	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
 		return;
 
-	QMessageBox *msg = new QMessageBox(this);
-	msg->setText("Computing Centerline");
-	msg->exec();
+	//QMessageBox *msg = new QMessageBox(this);
+	//msg->setText("Computing Centerline");
+	//msg->setStandardButtons(0);
+	//msg->exec();
 
 	// merge boundary cap to the surface
 	vtkSmartPointer<vtkPolyData> surface = vtkSmartPointer<vtkPolyData>::New();
@@ -874,7 +875,7 @@ void MainWindow::slotComputCenterline()
 	branchExtractor->SetTractIdsArrayName("TractIds");
 	branchExtractor->Update();
 
-	std::cout << "compute centerline ok" << std::endl;
+	//std::cout << "compute centerline ok" << std::endl;
 
 	m_io->GetOriginalCenterline()->DeepCopy(branchExtractor->GetOutput());
 	m_io->GetCenterline()->DeepCopy(branchExtractor->GetOutput());
@@ -882,7 +883,7 @@ void MainWindow::slotComputCenterline()
 	this->updateCenterlineDataTable();
 	this->slotAutoLocateFirstBifurcation();
 
-	msg->close();
+	//msg->close();
 }
 
 void MainWindow::slotCurrentCenterlineKeyPoint()
@@ -971,7 +972,8 @@ void MainWindow::renderSurface()
 	}
 
 	m_surfaceMapper->SetInputData(m_io->GetSurface());
-	m_centerlineActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+	m_surfaceMapper->ScalarVisibilityOff();
+	m_surfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
 
 	ui->qvtkWidget->update();
 }
