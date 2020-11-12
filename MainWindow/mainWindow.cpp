@@ -737,9 +737,6 @@ void MainWindow::slotRemoveCenterlineKeyPoint()
 
 void MainWindow::slotRemoveAllCenterlineKeyPoint()
 {
-	if (ui->tableWidgetCenterlineKeyPoints->currentRow() == -1)
-		return;
-
 	// remove actors
 	for (int i; i < m_centerlineKeyPointActors.size(); i++)
 	{
