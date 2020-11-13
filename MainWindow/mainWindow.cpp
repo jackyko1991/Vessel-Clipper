@@ -737,15 +737,12 @@ void MainWindow::slotRemoveCenterlineKeyPoint()
 
 void MainWindow::slotRemoveAllCenterlineKeyPoint()
 {
-	if (ui->tableWidgetCenterlineKeyPoints->currentRow() == -1)
-		return;
-
 	// remove actors
-	for (int i; i < m_centerlineKeyPointActors.size(); i++)
+	for (int i= m_centerlineKeyPointActors.size(); i >0; i--)
 	{
-		m_renderer->RemoveActor(this->m_centerlineKeyPointActors.at(i));
-		m_centerlineKeyPointActors.removeAt(i);
-		m_io->RemoveCenterlineKeyPoint(i);
+		m_renderer->RemoveActor(this->m_centerlineKeyPointActors.at(i-1));
+		m_centerlineKeyPointActors.removeAt(i-1);
+		m_io->RemoveCenterlineKeyPoint(i-1);
 	}
 
 	this->updateCenterlineKeyPointsTable();
