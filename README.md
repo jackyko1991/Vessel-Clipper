@@ -22,7 +22,7 @@ Toolchain dependency:
 - MSVC 2015 **Update 3**(Windows)
 - CMake 3.11 or above
 - Qt 5.9 or above
-- VTK 8.0
+- VTK 8.0 (VTK 7.0 cannot save capped STL surface properly)
 - ITK
 - VMTK
 - nlohmann_json(if CMake version below 3.11)
