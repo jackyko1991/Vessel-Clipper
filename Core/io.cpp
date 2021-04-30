@@ -16,6 +16,8 @@
 #include "vtkKdTreePointLocator.h"
 #include "vtkAppendPolyData.h"
 #include "vtkCleanPolyData.h"
+#include "vtkTriangleFilter.h"
+#include "vtkvmtkPolyDataSurfaceRemeshing.h"
 
 // json
 #include <nlohmann/json.hpp>
@@ -407,20 +409,7 @@ void IO::WriteDomain()
 	vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
 	appendFilter->SetInputData(m_surface);
 
-	for (int i = 0; i < m_boundaryCaps.size(); i++)
-	{
-		appendFilter->AddInputData(m_boundaryCaps.at(i).polydata);
-	}
-	appendFilter->Update();
-	vtkSmartPointer<vtkCleanPolyData> cleaner = vtkSmartPointer<vtkCleanPolyData>::New();
-	cleaner->SetInputData(appendFilter->GetOutput());
-	cleaner->Update();
-
 	vtkSmartPointer<vtkSTLWriter> writer = vtkSmartPointer<vtkSTLWriter>::New();
-	QFileInfo cappedSurfaceFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_capped.stl"));
-	writer->SetFileName(cappedSurfaceFile.absoluteFilePath().toStdString().c_str());
-	writer->SetInputData(cleaner->GetOutput());
-	writer->Update();
 
 	// boundary caps
 	QFileInfoList boundaryCapFileList;
@@ -429,9 +418,34 @@ void IO::WriteDomain()
 		QFileInfo boundaryCapFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_" + m_boundaryCaps.at(i).name + ".stl"));
 		boundaryCapFileList.append(boundaryCapFile);
 		writer->SetFileName(boundaryCapFile.absoluteFilePath().toStdString().c_str());
-		writer->SetInputData(m_boundaryCaps.at(i).polydata);
+
+		vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+		triangleFilter->SetInputData(m_boundaryCaps.at(i).polydata);
+		triangleFilter->Update();
+
+		// make triangles into same size
+		vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
+		surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
+		surfaceRemeshing->SetMinArea(0.01);
+		surfaceRemeshing->SetMaxArea(0.01);
+		surfaceRemeshing->SetNumberOfIterations(10);
+		surfaceRemeshing->Update();
+
+		writer->SetInputData(surfaceRemeshing->GetOutput());
 		writer->Update();
+
+		appendFilter->AddInputData(surfaceRemeshing->GetOutput());
 	}
+
+	appendFilter->Update();
+	vtkSmartPointer<vtkCleanPolyData> cleaner = vtkSmartPointer<vtkCleanPolyData>::New();
+	cleaner->SetInputData(appendFilter->GetOutput());
+	cleaner->Update();
+
+	QFileInfo cappedSurfaceFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_capped.stl"));
+	writer->SetFileName(cappedSurfaceFile.absoluteFilePath().toStdString().c_str());
+	writer->SetInputData(cleaner->GetOutput());
+	writer->Update();
 
 	// vessel surface
 	QFileInfo vesselFile(this->addUniqueSuffix(m_domainFile.absolutePath() + "/" + m_domainFile.baseName() + "_vessel.stl"));

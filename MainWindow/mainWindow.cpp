@@ -1390,6 +1390,7 @@ void MainWindow::renderBoundaryCaps()
 		mapper->SetScalarVisibility(0);
 		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
 		actor->SetMapper(mapper);
+		//actor->GetProperty()->SetRepresentationToWireframe();
 		switch (m_io->GetBoundaryCaps().at(i).type)
 		{
 		case BoundaryCapType::none:
