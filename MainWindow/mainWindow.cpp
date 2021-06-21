@@ -1527,9 +1527,6 @@ void MainWindow::renderBoundaryCapsDirection()
 				break;
 		}
 		
-		std::cout << "point: " << i << std::endl;
-		std::cout << bc.tangent[0] << " " << bc.tangent[1] << " "<< bc.tangent[2] << std::endl;
-
 		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
 		transformFilter->SetInputData(arrowSource->GetOutput());
 		transformFilter->SetTransform(transform);
