@@ -72,7 +72,7 @@ public slots:
 	void slotCenterlineKeyPointUpdated();
 	void slotRemoveCenterlineKeyPoint();
 	void slotRemoveAllCenterlineKeyPoint();
-	void slotComputCenterline();
+	void slotComputeCenterline();
 	void slotCurrentCenterlineKeyPoint();
 
 	// fiducial

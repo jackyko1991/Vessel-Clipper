@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_17">
     <item>
-     <widget class="QVTKWidget" name="qvtkWidget"/>
+     <widget class="QVTKWidget" name="qvtkWidget" native="true"/>
     </item>
     <item>
      <widget class="QFrame" name="frame">

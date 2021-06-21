@@ -150,7 +150,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonRemoveCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveCenterlineKeyPoint);
 	connect(ui->pushButtonRemoveAllCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCenterlineKeyPoint);
 	connect(ui->pushButtonSaveCenterline_3, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
-	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputCenterline);
+	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputeCenterline);
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
 
 	// clipping
@@ -749,7 +749,7 @@ void MainWindow::slotRemoveAllCenterlineKeyPoint()
 	this->renderCenterlineKeyPoints();
 }
 
-void MainWindow::slotComputCenterline()
+void MainWindow::slotComputeCenterline()
 {
 	if (m_io->GetSurface()->GetNumberOfPoints() == 0)
 		return;
@@ -1509,7 +1509,10 @@ void MainWindow::renderBoundaryCapsDirection()
 		transform->Translate(bc.center[0],bc.center[1],bc.center[2]);
 		double w = atan(sqrt(pow(bc.tangent[0], 2) + pow(bc.tangent[1], 2)) / bc.tangent[2]) * 180 / 3.14;
 		transform->RotateWXYZ(w, -bc.tangent[1], bc.tangent[0], 0);
-		transform->RotateY(-90);
+		if (bc.tangent[2] >= 0)
+			transform->RotateY(-90);
+		else
+			transform->RotateY(90);
 		switch (bc.type)
 		{
 			case BoundaryCapType::none:
@@ -1524,6 +1527,9 @@ void MainWindow::renderBoundaryCapsDirection()
 				break;
 		}
 		
+		std::cout << "point: " << i << std::endl;
+		std::cout << bc.tangent[0] << " " << bc.tangent[1] << " "<< bc.tangent[2] << std::endl;
+
 		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
 		transformFilter->SetInputData(arrowSource->GetOutput());
 		transformFilter->SetTransform(transform);
