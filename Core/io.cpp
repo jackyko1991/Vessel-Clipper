@@ -497,6 +497,9 @@ void IO::WriteDomain()
 		case FiducialType::Bifurcation:
 			j["fiducial_" + std::to_string(i)]["type"] = "Bifurcation";
 			break;
+		case FiducialType::DoS_Ref:
+			j["fiducial_" + std::to_string(i)]["type"] = "DoS_Ref";
+			break;
 		case FiducialType::Others:
 			j["fiducial_" + std::to_string(i)]["type"] = "Others";
 			break;
