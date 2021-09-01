@@ -426,8 +426,8 @@ void IO::WriteDomain()
 		// make triangles into same size
 		vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
 		surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
-		surfaceRemeshing->SetMinArea(0.01);
-		surfaceRemeshing->SetMaxArea(0.01);
+		surfaceRemeshing->SetMinArea(1e-3);
+		surfaceRemeshing->SetMaxArea(1e-2);
 		surfaceRemeshing->SetNumberOfIterations(10);
 		surfaceRemeshing->Update();
 
