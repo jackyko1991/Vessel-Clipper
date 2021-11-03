@@ -19,11 +19,14 @@
 #include <vtkCylinderSource.h>
 #include <vtkOutlineFilter.h>
 
+
+
 namespace Ui {
 	class MainWindow;
 }
 
 class QProgressBar;
+class BranchOperation;
 
 class MainWindow : public QMainWindow
 {
@@ -81,6 +84,9 @@ public slots:
 	void slotRemoveFiducial();
 	void slotCurrentFiducial();
 
+	// action
+	void slotActionBranch();
+
 private slots:
 	void readSurfaceFileComplete();
 	void readCenterlineFileComplete();
@@ -105,6 +111,7 @@ private:
 	void renderOutlineBoundingBox();
 	void updateFiducialTable();
 	void renderFiducial();
+	void updateCenterlinesInfoWidget();
 
 	IO* m_io;
 
@@ -152,6 +159,9 @@ private:
 
 	// fiducials
 	QList<vtkActor*> m_fiducialActors;
+
+	// utils
+	BranchOperation* m_branchOperation;
 };
 
 #endif

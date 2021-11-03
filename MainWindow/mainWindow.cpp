@@ -13,6 +13,7 @@
 #include "QTableWidget"
 #include "QComboBox"
 #include <QMessageBox>
+#include <QAction>
 
 // vtk
 #include "QVTKWidget.h"
@@ -46,6 +47,9 @@
 #include "vtkvmtkCenterlineAttributesFilter.h"
 #include "vtkvmtkCenterlineGeometry.h"
 #include "vtkvmtkCenterlineBranchExtractor.h"
+
+// widgets
+#include "branch_operation.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -99,6 +103,9 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// centerline key point table
 	ui->tableWidgetCenterlineKeyPoints->verticalHeader()->setVisible(false);
 	ui->tableWidgetCenterlineKeyPoints->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+	// utils
+	m_branchOperation = new BranchOperation();
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -168,6 +175,9 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonRemoveFiducial, &QPushButton::clicked, this, &MainWindow::slotRemoveFiducial);
 	connect(ui->tableWidgetFiducial, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentFiducial);
 	connect(ui->pushButtonSaveDomain_3, &QPushButton::clicked, this, &MainWindow::slotSaveDomain);
+
+	// actions
+	connect(ui->actionBranch, &QAction::triggered, this, &MainWindow::slotActionBranch);
 
 	// shortcut, remove for release
 	ui->lineEditSurface->setText("Z:/data/intracranial");
@@ -878,6 +888,7 @@ void MainWindow::slotComputeCenterline()
 	m_io->GetCenterline()->DeepCopy(branchExtractor->GetOutput());
 	this->renderCenterline();
 	this->updateCenterlineDataTable();
+	this->updateCenterlinesInfoWidget();
 	this->slotAutoLocateFirstBifurcation();
 
 	//msg->close();
@@ -947,6 +958,11 @@ void MainWindow::slotCurrentFiducial()
 	this->renderOutlineBoundingBox();
 
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotActionBranch()
+{
+	m_branchOperation->show();
 }
 
 void MainWindow::slotExit()
@@ -1089,6 +1105,7 @@ void MainWindow::updateCenterlineDataTable()
 			0, 
 			new QTableWidgetItem(QString::number(i)));
 		// abscissas
+
 		vtkDataArray* abscissas = centerline->GetPointData()->GetArray("Abscissas");
 		if (abscissas != nullptr)
 		{
@@ -1105,6 +1122,19 @@ void MainWindow::updateCenterlineDataTable()
 					QString::number(abscissas->GetComponent(i, 0)-
 					abscissas->GetComponent(m_io->GetCenterlineFirstBifurcationPointId(),0))));
 		}
+		else
+		{
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				1,
+				new QTableWidgetItem(QString::number(0)));
+
+			// normalized abscissas
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				2,
+				new QTableWidgetItem(QString::number(0)));
+		}
 
 		// point
 		ui->tableWidgetCenterline->setItem(
@@ -1115,6 +1145,7 @@ void MainWindow::updateCenterlineDataTable()
 				QString::number(centerline->GetPoint(i)[1]) + ", "+
 				QString::number(centerline->GetPoint(i)[2])
 			));
+
 		// binormal
 		vtkDataArray* binormal = centerline->GetPointData()->GetArray("FrenetBinormal");
 		if (binormal != nullptr)
@@ -1128,6 +1159,18 @@ void MainWindow::updateCenterlineDataTable()
 					QString::number(binormal->GetComponent(i, 2))
 				));
 		}
+		else
+		{
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				4,
+				new QTableWidgetItem(
+					QString::number(0) + ", " +
+					QString::number(0) + ", " +
+					QString::number(0)
+				));
+		}
+
 		// normal
 		vtkDataArray* normal = centerline->GetPointData()->GetArray("FrenetNormal");
 		if (normal != nullptr)
@@ -1141,6 +1184,18 @@ void MainWindow::updateCenterlineDataTable()
 					QString::number(normal->GetComponent(i, 2))
 				));
 		}
+		else
+		{
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				5,
+				new QTableWidgetItem(
+					QString::number(0) + ", " +
+					QString::number(0) + ", " +
+					QString::number(0)
+				));
+		}
+
 		// tangent
 		vtkDataArray* tangent = centerline->GetPointData()->GetArray("FrenetTangent");
 		if (tangent != nullptr)
@@ -1154,6 +1209,18 @@ void MainWindow::updateCenterlineDataTable()
 					QString::number(tangent->GetComponent(i, 2))
 				));
 		}
+		else
+		{
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				6,
+				new QTableWidgetItem(
+					QString::number(0) + ", " +
+					QString::number(0) + ", " +
+					QString::number(0)
+				));
+		}
+
 		// radius
 		vtkDataArray* radius = centerline->GetPointData()->GetArray("Radius");
 		if (radius != nullptr)
@@ -1163,10 +1230,20 @@ void MainWindow::updateCenterlineDataTable()
 				7,
 				new QTableWidgetItem(QString::number(radius->GetComponent(i, 0))));
 		}
+		else
+		{
+			ui->tableWidgetCenterline->setItem(
+				ui->tableWidgetCenterline->rowCount() - 1,
+				7,
+				new QTableWidgetItem(QString::number(0)));
+
+		}
 
 		// disable edit function
-		for (int j=0;j<8;j++)
+		for (int j = 0; j < 8; j++)
+		{
 			ui->tableWidgetCenterline->item(ui->tableWidgetCenterline->rowCount() - 1, j)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+		}
 		
 		// set row color
 		if (ui->tableWidgetCenterline->item(ui->tableWidgetCenterline->rowCount() - 1, 2)->text().toDouble() < -1.*ui->doubleSpinBoxProximalBound->value() ||
@@ -1179,9 +1256,7 @@ void MainWindow::updateCenterlineDataTable()
 		{
 			for (int j = 0; j<8; j++)
 				ui->tableWidgetCenterline->item(ui->tableWidgetCenterline->rowCount() - 1, j)->setData(Qt::BackgroundRole, QColor(255, 255, 255));
-
 		}
-
 	}
 }
 
@@ -1620,6 +1695,9 @@ void MainWindow::updateFiducialTable()
 		QComboBox* combo = new QComboBox(ui->tableWidgetFiducial);
 		combo->addItem("Stenosis");
 		combo->addItem("Bifurcation");
+		combo->addItem("DoS Ref");
+		combo->addItem("Proximal Normal");
+		combo->addItem("Distal Normal");
 		combo->addItem("Others");
 		combo->setCurrentIndex(m_io->GetFiducial().at(i).second);
 		ui->tableWidgetFiducial->setCellWidget(
@@ -1672,6 +1750,11 @@ void MainWindow::renderFiducial()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::updateCenterlinesInfoWidget()
+{
+	ui->centerlinesInfoWidget->SetCenterlines(m_io->GetCenterline());
+}
+
 void MainWindow::readSurfaceFileComplete()
 {
 	if (!m_ioWatcher->future().result())
@@ -1706,6 +1789,7 @@ void MainWindow::readCenterlineFileComplete()
 	{
 		m_statusLabel->setText("Loading centerline file complete");
 		this->renderCenterline();
+		this->updateCenterlinesInfoWidget();
 		this->renderFirstBifurcationPoint();
 
 		m_renderer->ResetCamera();
@@ -1716,6 +1800,8 @@ void MainWindow::readCenterlineFileComplete()
 	{
 		m_statusLabel->setText("Loading centerline file fail");
 	}
+
+	this->updateCenterlinesInfoWidget();
 
 	m_statusProgressBar->setValue(100);
 

@@ -31,10 +31,12 @@ find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})
 
 # QT
-find_package(Qt5 COMPONENTS Core Widgets Concurrent REQUIRED)
+find_package(Qt5 COMPONENTS Core Widgets Concurrent PrintSupport REQUIRED)
 
 # Custom libraries
 include_directories(${Core_SOURCE_DIR})
+include_directories(${CenterlinesInfoWidget_SOURCE_DIR})
+include_directories(${Branch_SOURCE_DIR})
 
 # Finding needed source files.
 file(
@@ -88,10 +90,12 @@ add_library(
 target_link_libraries(
 	${LIBRARY_NAME}
 	Core
+	CenterlinesInfoWidget
+	Branch
 	${VTK_LIBRARIES}
 	${VMTK_LIBRARIES}
 )
-qt5_use_modules(${LIBRARY_NAME} Core Widgets Concurrent)
+qt5_use_modules(${LIBRARY_NAME} Core Widgets Concurrent PrintSupport)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

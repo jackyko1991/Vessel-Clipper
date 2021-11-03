@@ -13,7 +13,13 @@
 
 #include "boundaryCaps.h"
 
-enum FiducialType {Stenosis, Bifurcation, DoS_Ref, Others};
+enum FiducialType {
+	Stenosis, 
+	Bifurcation, 
+	DoS_Ref, 
+	Proximal_Normal,
+	Distal_Normal,
+	Others};
 
 class IO : public QObject
 {

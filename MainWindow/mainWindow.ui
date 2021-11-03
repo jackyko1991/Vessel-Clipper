@@ -16,7 +16,27 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_17">
     <item>
-     <widget class="QVTKWidget" name="qvtkWidget" native="true"/>
+     <layout class="QVBoxLayout" name="verticalLayout_7">
+      <item>
+       <widget class="QVTKWidget" name="qvtkWidget"/>
+      </item>
+      <item>
+       <widget class="CenterlinesInfoWidget" name="centerlinesInfoWidget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>160</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="QFrame" name="frame">
@@ -647,6 +667,75 @@
            </item>
           </layout>
          </widget>
+         <widget class="QWidget" name="tab_5">
+          <attribute name="title">
+           <string>Recon</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_8">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_19">
+             <item>
+              <widget class="QLabel" name="label_21">
+               <property name="text">
+                <string>Radius Array:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="comboBox_3"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_20">
+             <item>
+              <widget class="QLabel" name="label_22">
+               <property name="text">
+                <string>Abscissas Array:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="comboBox_4"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonResetSurface_3">
+             <property name="text">
+              <string>Reconstruct Stenosis</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>230</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonResetSurface_2">
+             <property name="text">
+              <string>Reset Surface</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonResetCenterline_2">
+             <property name="text">
+              <string>Reset Centerline</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
          <widget class="QWidget" name="tab_2">
           <attribute name="title">
            <string>Extend</string>
@@ -1139,16 +1228,6 @@ Red Sphere: Centerline Target</string>
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1152</width>
-     <height>21</height>
-    </rect>
-   </property>
-  </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -1161,12 +1240,79 @@ Red Sphere: Centerline Target</string>
     <bool>false</bool>
    </attribute>
   </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1152</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuUtils">
+    <property name="title">
+     <string>Utils</string>
+    </property>
+    <addaction name="actionMeasurement"/>
+    <addaction name="actionBranch"/>
+    <addaction name="actionSmooth"/>
+   </widget>
+   <widget class="QMenu" name="menuViewer">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <addaction name="actionViewer"/>
+   </widget>
+   <addaction name="menuUtils"/>
+   <addaction name="menuViewer"/>
+  </widget>
+  <action name="actionMeasurement">
+   <property name="text">
+    <string>Measurement</string>
+   </property>
+  </action>
+  <action name="actionReconstruction">
+   <property name="text">
+    <string>Reconstruction</string>
+   </property>
+  </action>
+  <action name="actionBranch_Remove">
+   <property name="text">
+    <string>Branch Remove</string>
+   </property>
+  </action>
+  <action name="actionExtract">
+   <property name="text">
+    <string>Extract</string>
+   </property>
+  </action>
+  <action name="actionViewer">
+   <property name="text">
+    <string>Perferences</string>
+   </property>
+  </action>
+  <action name="actionBranch">
+   <property name="text">
+    <string>Branch Operations</string>
+   </property>
+  </action>
+  <action name="actionSmooth">
+   <property name="text">
+    <string>Smooth</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
    <class>QVTKWidget</class>
    <extends>QWidget</extends>
    <header>QVTKWidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CenterlinesInfoWidget</class>
+   <extends>QWidget</extends>
+   <header>CenterlinesInfoWidget.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources>
