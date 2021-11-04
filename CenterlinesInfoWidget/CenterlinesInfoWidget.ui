@@ -211,7 +211,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton_3">
+          <widget class="QPushButton" name="pushButtonAutoLocateDistal">
            <property name="text">
             <string>Auto Locate Distal Normal</string>
            </property>
@@ -222,21 +222,21 @@
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_7">
          <item>
-          <widget class="QPushButton" name="pushButton_6">
+          <widget class="QPushButton" name="pushButtonManualLocateStenosis">
            <property name="text">
             <string>Manual Locate Stenosis</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton_5">
+          <widget class="QPushButton" name="pushButtonManualLocateProximalNormal">
            <property name="text">
             <string>Manual Locate Proximal Normal</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton_4">
+          <widget class="QPushButton" name="pushButtonManualLocateDistalNormal">
            <property name="text">
             <string>Manual Locate Distal Normal</string>
            </property>
@@ -258,17 +258,27 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
-        <widget class="QCheckBox" name="checkBoxDerivative">
-         <property name="text">
-          <string>Derivative</string>
-         </property>
-        </widget>
-       </item>
        <item row="1" column="0" colspan="2">
         <widget class="QCheckBox" name="checkBoxRenderNormalPlanes">
          <property name="text">
           <string>Render Normal Planes</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QCheckBox" name="checkBoxDerivative1">
+         <property name="text">
+          <string>1st Derivative</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QCheckBox" name="checkBoxDerivative2">
+         <property name="text">
+          <string>2nd Derivative</string>
          </property>
         </widget>
        </item>

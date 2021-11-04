@@ -41,6 +41,7 @@
 #include "vtkTextProperty.h"
 #include "vtkAppendPolyData.h"
 #include "vtkCleanPolyData.h"
+#include "vtkPlaneSource.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
@@ -115,8 +116,15 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_centerlineActor->SetMapper(m_centerlineMapper);
 	m_centerlineActor->GetProperty()->SetColor(1, 1, 1);
 	
+	m_proximalNormalActor->SetMapper(m_proximalNormalMapper);
+	m_distalNormalActor->SetMapper(m_distalNormalMapper);
+	m_proximalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
+	m_distalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
+	
 	m_renderer->AddActor(m_surfaceActor);
 	m_renderer->AddActor(m_centerlineActor);
+	m_renderer->AddActor(m_proximalNormalActor);
+	m_renderer->AddActor(m_distalNormalActor);
 
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
@@ -179,9 +187,16 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// actions
 	connect(ui->actionBranch, &QAction::triggered, this, &MainWindow::slotActionBranch);
 
+	// set stenosis and normal points
+	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetStenosis()), this, SLOT(slotSetStenosisPoint()));
+	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetProximalNormal()), this, SLOT(slotSetProximalNormalPoint()));
+	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetDistalNormal()), this, SLOT(slotSetDistalNormalPoint()));
+
 	// shortcut, remove for release
-	ui->lineEditSurface->setText("Z:/data/intracranial");
-	ui->lineEditCenterline->setText("Z:/data/intracranial");
+	//ui->lineEditSurface->setText("Z:/data/intracranial");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
 	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
@@ -265,6 +280,13 @@ void MainWindow::slotCurrentPickingPoint()
 	m_currentPickingSphereSource->SetCenter(m_io->GetCenterline()->GetPoint(ui->tableWidgetCenterline->currentRow()));
 	m_currentPickingActor->VisibilityOn();
 	ui->qvtkWidget->update();
+
+	// centerlines plot widget update
+	ui->centerlinesInfoWidget->SetCursorPosition(
+		m_io->GetCenterline()->GetPoint(ui->tableWidgetCenterline->currentRow())[0],
+		m_io->GetCenterline()->GetPoint(ui->tableWidgetCenterline->currentRow())[1],
+		m_io->GetCenterline()->GetPoint(ui->tableWidgetCenterline->currentRow())[2]
+	);
 }
 
 void MainWindow::slotSetFirstBifurcation()
@@ -891,6 +913,10 @@ void MainWindow::slotComputeCenterline()
 	this->updateCenterlinesInfoWidget();
 	this->slotAutoLocateFirstBifurcation();
 
+	// update centerlines plot
+	ui->centerlinesInfoWidget->SetCenterlines(m_io->GetCenterline());
+	ui->centerlinesInfoWidget->UpdatePlot();
+
 	//msg->close();
 }
 
@@ -958,6 +984,83 @@ void MainWindow::slotCurrentFiducial()
 	this->renderOutlineBoundingBox();
 
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSetStenosisPoint()
+{
+	m_io->SetStenosisPoint(
+		ui->centerlinesInfoWidget->GetStenosisPoint()[0],
+		ui->centerlinesInfoWidget->GetStenosisPoint()[1],
+		ui->centerlinesInfoWidget->GetStenosisPoint()[2]
+		);
+}
+
+void MainWindow::slotSetProximalNormalPoint()
+{
+	m_io->SetProximalNormalPoint(
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
+		);
+
+	vtkSmartPointer<vtkPlaneSource> planeSource = vtkSmartPointer<vtkPlaneSource>::New();
+	planeSource->SetCenter(
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
+		);
+	vtkSmartPointer<vtkKdTreePointLocator> locator = vtkSmartPointer<vtkKdTreePointLocator>::New();
+	locator->SetDataSet(m_io->GetCenterline());
+	locator->BuildLocator();
+	double pt[3] = {
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
+	};
+
+	int id = locator->FindClosestPoint(pt);
+
+	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent");
+	if (tangentArray == nullptr)
+		return;
+
+	planeSource->SetNormal(tangentArray->GetTuple(id)[0], tangentArray->GetTuple(id)[1], tangentArray->GetTuple(id)[2]);
+	std::cout << "normal: " <<
+		tangentArray->GetTuple(id)[0] << "," <<
+		tangentArray->GetTuple(id)[1] << "," <<
+		tangentArray->GetTuple(id)[2] << std::endl;
+	planeSource->Update();
+
+	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
+	if (!(radiusArray == nullptr))
+	{
+		vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+		transform->Scale(radiusArray->GetTuple(id)[0]*1.5, radiusArray->GetTuple(id)[0] * 1.5, radiusArray->GetTuple(id)[0] * 1.5);
+		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+		transformFilter->SetInputData(planeSource->GetOutput());
+		transformFilter->SetTransform(transform);
+		transformFilter->Update();
+
+		m_proximalNormalMapper->SetInputConnection(transformFilter->GetOutputPort());
+		ui->qvtkWidget->update();
+
+		std::cout << "radius: " << radiusArray->GetTuple(id)[0]<< std::endl;
+	}
+}
+
+void MainWindow::slotSetDistalNormalPoint()
+{
+	m_io->SetDistalNormalPoint(
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[2]
+		);
+	vtkSmartPointer<vtkPlaneSource> planeSource = vtkSmartPointer<vtkPlaneSource>::New();
+	planeSource->SetCenter(
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[2]
+	);
 }
 
 void MainWindow::slotActionBranch()

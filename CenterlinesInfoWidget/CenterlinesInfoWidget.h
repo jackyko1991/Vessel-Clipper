@@ -22,13 +22,31 @@ public:
 
 public slots:
 	void UpdatePlot();
+	void SetCursorPosition(double x, double y, double z);
+	void SetStenosisPoint();
+	void SetProximalNormalPoint();
+	void SetDistalNormalPoint();
+	QVector<double> GetStenosisPoint();
+	QVector<double> GetProximalNormalPoint();
+	QVector<double> GetDistalNormalPoint();
 
 private slots :
 	void updateCenterlineIdsComboBox();
 
+signals:
+	void signalSetStenosis();
+	void signalSetProximalNormal();
+	void signalSetDistalNormal();
+
 private:
 	Ui::CenterlinesInfoWidget *ui;
 	vtkPolyData* m_centerlines = nullptr;
+	bool m_resetPlotRange = true;
+
+	QVector<double> m_cursorPosition;
+	QVector<double> m_stenosisPoint;
+	QVector<double> m_proximalNormalPoint;
+	QVector<double> m_distalNormalPoint;
 };
 
 #endif

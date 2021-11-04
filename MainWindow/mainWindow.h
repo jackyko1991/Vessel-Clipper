@@ -84,6 +84,11 @@ public slots:
 	void slotRemoveFiducial();
 	void slotCurrentFiducial();
 
+	// stenosis and normal planes
+	void slotSetStenosisPoint();
+	void slotSetProximalNormalPoint();
+	void slotSetDistalNormalPoint();
+
 	// action
 	void slotActionBranch();
 
@@ -159,6 +164,12 @@ private:
 
 	// fiducials
 	QList<vtkActor*> m_fiducialActors;
+
+	// normal planes
+	vtkSmartPointer<vtkPolyDataMapper> m_proximalNormalMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkPolyDataMapper> m_distalNormalMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_proximalNormalActor = vtkSmartPointer<vtkActor>::New();
+	vtkSmartPointer<vtkActor> m_distalNormalActor = vtkSmartPointer<vtkActor>::New();
 
 	// utils
 	BranchOperation* m_branchOperation;

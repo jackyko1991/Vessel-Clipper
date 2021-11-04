@@ -568,6 +568,29 @@ QList<QPair<QVector<double>, FiducialType>> IO::GetFiducial()
 	return m_fiducial;
 }
 
+void IO::SetStenosisPoint(double x, double y, double z)
+{
+	m_stenosisPoint[0] = x;
+	m_stenosisPoint[1] = y;
+	m_stenosisPoint[2] = z;
+
+	std::cout << "m_io set stenosis point: " << x << "," << y << "," << z << std::endl;
+}
+
+void IO::SetProximalNormalPoint(double x, double y, double z)
+{
+	m_proximalNormalPoint[0] = x;
+	m_proximalNormalPoint[1] = y;
+	m_proximalNormalPoint[2] = z;
+}
+
+void IO::SetDistalNormalPoint(double x, double y, double z)
+{
+	m_distalNormalPoint[0] = x;
+	m_distalNormalPoint[1] = y;
+	m_distalNormalPoint[2] = z;
+}
+
 QString IO::addUniqueSuffix(const QString & fileName)
 {
 	// If the file doesn't exist return the same name.

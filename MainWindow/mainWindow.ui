@@ -1256,6 +1256,7 @@ Red Sphere: Centerline Target</string>
     <addaction name="actionMeasurement"/>
     <addaction name="actionBranch"/>
     <addaction name="actionSmooth"/>
+    <addaction name="actionResample"/>
    </widget>
    <widget class="QMenu" name="menuViewer">
     <property name="title">
@@ -1299,6 +1300,11 @@ Red Sphere: Centerline Target</string>
   <action name="actionSmooth">
    <property name="text">
     <string>Smooth</string>
+   </property>
+  </action>
+  <action name="actionResample">
+   <property name="text">
+    <string>Resample</string>
    </property>
   </action>
  </widget>

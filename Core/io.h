@@ -61,6 +61,9 @@ public:
 	void RemoveFiducial(int);
 	void SetFiducial(int, QPair<QVector<double>, FiducialType>);
 	QList<QPair<QVector<double>, FiducialType>> GetFiducial();
+	void SetStenosisPoint(double x, double y, double z);
+	void SetProximalNormalPoint(double x, double y, double z);
+	void SetDistalNormalPoint(double x, double y, double z);
 
 	static QString addUniqueSuffix(const QString &fileName);
 
@@ -79,6 +82,11 @@ private:
 	void updateCenterlineFirstBifurcationPointId();
 	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
 	int m_centerlineFirstBifurcationPointId = 0;
+
+	QVector<double> m_stenosisPoint = QVector<double>(3);
+	QVector<double> m_proximalNormalPoint = QVector<double>(3);
+	QVector<double> m_distalNormalPoint = QVector<double>(3);
+
 	QList<BoundaryCap> m_boundaryCaps;
 
 	vtkSmartPointer<vtkPolyData> m_original_surface = vtkSmartPointer<vtkPolyData>::New();
@@ -88,6 +96,7 @@ private:
 
 	QList<QPair<QVector<double>, bool>> m_centerlineKeyPoints;
 	QList<QPair<QVector<double>, FiducialType>> m_fiducial;
+
 };
 
 #endif // ! IO_H
