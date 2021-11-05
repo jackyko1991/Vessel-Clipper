@@ -42,6 +42,9 @@
 #include "vtkAppendPolyData.h"
 #include "vtkCleanPolyData.h"
 #include "vtkPlaneSource.h"
+#include "vtkCellData.h"
+#include "vtkTextMapper.h"
+#include "vtkProperty2D.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
@@ -191,16 +194,17 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetStenosis()), this, SLOT(slotSetStenosisPoint()));
 	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetProximalNormal()), this, SLOT(slotSetProximalNormalPoint()));
 	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetDistalNormal()), this, SLOT(slotSetDistalNormalPoint()));
+	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetCenterlineIdsArray(QString)), this, SLOT(slotSetCenterlineIdsArray(QString)));
 
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
 	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -933,6 +937,53 @@ void MainWindow::slotCurrentCenterlineKeyPoint()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::slotSetCenterlineIdsArray(QString name)
+{
+	std::cout << name.toStdString() << std::endl;
+
+	// remove old actors
+	while (m_centerlineIdsActors.size() > 1)
+	{
+		m_renderer->RemoveActor(m_centerlineIdsActors.last());
+		m_centerlineIdsActors.pop_back();
+	}
+
+	vtkDataArray* centerlineIds = m_io->GetCenterline()->GetCellData()->GetArray(name.toStdString().c_str());
+	if (centerlineIds == nullptr)
+		return;
+
+	vtkSmartPointer<vtkThreshold> thresholdFilter = vtkSmartPointer<vtkThreshold>::New();
+	thresholdFilter->SetInputData(m_io->GetCenterline());
+	thresholdFilter->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, name.toStdString().c_str());
+
+	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
+	{
+		thresholdFilter->ThresholdBetween(i, i);
+		thresholdFilter->Update();
+		vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+		geomFilter->SetInputData((vtkDataObject*)thresholdFilter->GetOutput());
+		geomFilter->Update();
+		if (geomFilter->GetOutput()->GetNumberOfPoints() < 1)
+			continue;
+
+		double* plotPoint = geomFilter->GetOutput()->GetPoint(geomFilter->GetOutput()->GetNumberOfPoints() - 1);
+
+		m_renderer->SetWorldPoint(plotPoint);
+		m_renderer->WorldToDisplay();
+		double* dispPoint = m_renderer->GetDisplayPoint();
+
+		vtkSmartPointer<vtkBillboardTextActor3D > actor = vtkSmartPointer<vtkBillboardTextActor3D >::New();
+		std::string dispText = std::to_string(i);
+		actor->SetInput(dispText.c_str());
+		actor->SetPosition(plotPoint);
+		actor->GetTextProperty()->SetColor(1,1,0.5);
+
+		m_renderer->AddActor(actor);
+		m_centerlineIdsActors.push_back(actor);
+	}
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::slotAddFiducial()
 {
 	int current_row = ui->tableWidgetCenterline->currentRow();
@@ -1003,12 +1054,6 @@ void MainWindow::slotSetProximalNormalPoint()
 		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
 		);
 
-	vtkSmartPointer<vtkPlaneSource> planeSource = vtkSmartPointer<vtkPlaneSource>::New();
-	planeSource->SetCenter(
-		ui->centerlinesInfoWidget->GetProximalNormalPoint()[0],
-		ui->centerlinesInfoWidget->GetProximalNormalPoint()[1],
-		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
-		);
 	vtkSmartPointer<vtkKdTreePointLocator> locator = vtkSmartPointer<vtkKdTreePointLocator>::New();
 	locator->SetDataSet(m_io->GetCenterline());
 	locator->BuildLocator();
@@ -1021,31 +1066,71 @@ void MainWindow::slotSetProximalNormalPoint()
 	int id = locator->FindClosestPoint(pt);
 
 	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent");
+	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal");
+	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal");
+	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
 	if (tangentArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetTangent\" not found in centerline" << std::endl;
 		return;
+	}
+	if (normalArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetNormal\" not found in centerline" << std::endl;
+		return;
+	}
+	if (binormalArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetBinormal\" not found in centerline" << std::endl;
+		return;
+	}
+	if (radiusArray == nullptr)
+	{
+		std::cout << "Point data array \"Radius\" not found in centerline" << std::endl;
+		return;
+	}
 
-	planeSource->SetNormal(tangentArray->GetTuple(id)[0], tangentArray->GetTuple(id)[1], tangentArray->GetTuple(id)[2]);
 	std::cout << "normal: " <<
 		tangentArray->GetTuple(id)[0] << "," <<
 		tangentArray->GetTuple(id)[1] << "," <<
 		tangentArray->GetTuple(id)[2] << std::endl;
-	planeSource->Update();
 
-	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
-	if (!(radiusArray == nullptr))
-	{
-		vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-		transform->Scale(radiusArray->GetTuple(id)[0]*1.5, radiusArray->GetTuple(id)[0] * 1.5, radiusArray->GetTuple(id)[0] * 1.5);
-		vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
-		transformFilter->SetInputData(planeSource->GetOutput());
-		transformFilter->SetTransform(transform);
-		transformFilter->Update();
+	double center2origin[3];
+	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0]);
+	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1]);
+	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2]);
 
-		m_proximalNormalMapper->SetInputConnection(transformFilter->GetOutputPort());
-		ui->qvtkWidget->update();
+	double center2origin_norm = vtkMath::Norm(center2origin);
+	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id));
+	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id));
 
-		std::cout << "radius: " << radiusArray->GetTuple(id)[0]<< std::endl;
-	}
+	double radius = m_io->GetCenterline()->GetPointData()->GetArray("Radius")->GetTuple(id)[0];
+	double origin[3];
+
+	double size_factor = 3.;
+
+	origin[0] = m_io->GetCenterline()->GetPoint(id)[0] + size_factor * radius*center2origin[0] / center2origin_norm;
+	origin[1] = m_io->GetCenterline()->GetPoint(id)[1] + size_factor * radius*center2origin[1] / center2origin_norm;
+	origin[2] = m_io->GetCenterline()->GetPoint(id)[2] + size_factor * radius*center2origin[2] / center2origin_norm;
+
+	double point1[3];
+	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] / normal_norm;
+	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] / normal_norm;
+	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] / normal_norm;
+
+	double point2[3];
+	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0] / binormal_norm;
+	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1] / binormal_norm;
+	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2] / binormal_norm;
+
+	vtkSmartPointer<vtkPlaneSource> plane = vtkSmartPointer<vtkPlaneSource>::New();
+	plane->SetOrigin(origin);
+	plane->SetPoint1(point1);
+	plane->SetPoint2(point2);
+	plane->Update();
+
+	m_proximalNormalMapper->SetInputData(plane->GetOutput());
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::slotSetDistalNormalPoint()
@@ -1054,13 +1139,85 @@ void MainWindow::slotSetDistalNormalPoint()
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[0],
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[1],
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[2]
-		);
-	vtkSmartPointer<vtkPlaneSource> planeSource = vtkSmartPointer<vtkPlaneSource>::New();
-	planeSource->SetCenter(
+	);
+
+	vtkSmartPointer<vtkKdTreePointLocator> locator = vtkSmartPointer<vtkKdTreePointLocator>::New();
+	locator->SetDataSet(m_io->GetCenterline());
+	locator->BuildLocator();
+	double pt[3] = {
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[0],
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[1],
 		ui->centerlinesInfoWidget->GetDistalNormalPoint()[2]
-	);
+	};
+
+	int id = locator->FindClosestPoint(pt);
+
+	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent");
+	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal");
+	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal");
+	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
+	if (tangentArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetTangent\" not found in centerline" << std::endl;
+		return;
+	}
+	if (normalArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetNormal\" not found in centerline" << std::endl;
+		return;
+	}
+	if (binormalArray == nullptr)
+	{
+		std::cout << "Point data array \"FrenetBinormal\" not found in centerline" << std::endl;
+		return;
+	}
+	if (radiusArray == nullptr)
+	{
+		std::cout << "Point data array \"Radius\" not found in centerline" << std::endl;
+		return;
+	}
+
+	std::cout << "normal: " <<
+		tangentArray->GetTuple(id)[0] << "," <<
+		tangentArray->GetTuple(id)[1] << "," <<
+		tangentArray->GetTuple(id)[2] << std::endl;
+
+	double center2origin[3];
+	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0]);
+	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1]);
+	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2]);
+
+	double center2origin_norm = vtkMath::Norm(center2origin);
+	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id));
+	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id));
+
+	double radius = m_io->GetCenterline()->GetPointData()->GetArray("Radius")->GetTuple(id)[0];
+	double origin[3];
+
+	double size_factor = 3.;
+
+	origin[0] = m_io->GetCenterline()->GetPoint(id)[0] + size_factor * radius*center2origin[0] / center2origin_norm;
+	origin[1] = m_io->GetCenterline()->GetPoint(id)[1] + size_factor * radius*center2origin[1] / center2origin_norm;
+	origin[2] = m_io->GetCenterline()->GetPoint(id)[2] + size_factor * radius*center2origin[2] / center2origin_norm;
+
+	double point1[3];
+	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] / normal_norm;
+	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] / normal_norm;
+	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] / normal_norm;
+
+	double point2[3];
+	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0] / binormal_norm;
+	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1] / binormal_norm;
+	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2] / binormal_norm;
+
+	vtkSmartPointer<vtkPlaneSource> plane = vtkSmartPointer<vtkPlaneSource>::New();
+	plane->SetOrigin(origin);
+	plane->SetPoint1(point1);
+	plane->SetPoint2(point2);
+	plane->Update();
+
+	m_distalNormalMapper->SetInputData(plane->GetOutput());
+	ui->qvtkWidget->update();
 }
 
 void MainWindow::slotActionBranch()

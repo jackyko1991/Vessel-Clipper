@@ -37,6 +37,7 @@ signals:
 	void signalSetStenosis();
 	void signalSetProximalNormal();
 	void signalSetDistalNormal();
+	void signalSetCenterlineIdsArray(QString);
 
 private:
 	Ui::CenterlinesInfoWidget *ui;

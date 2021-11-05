@@ -172,14 +172,29 @@ QVector<double> CenterlinesInfoWidget::GetDistalNormalPoint()
 
 void CenterlinesInfoWidget::updateCenterlineIdsComboBox()
 {
+	// block combobox signal
+	disconnect(ui->comboBoxCenterlineIdsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::updateCenterlineIdsComboBox);
+	disconnect(ui->comboBoxCenterlineIds, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+	disconnect(ui->comboBoxAbscissasArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+	disconnect(ui->comboBoxYArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+
 	ui->comboBoxCenterlineIds->clear();
 	ui->comboBoxCenterlineIds->addItem("All");
+
 	for (int i = m_centerlines->GetCellData()->GetArray(ui->comboBoxCenterlineIdsArray->currentIndex())->GetRange()[0];
 		i < m_centerlines->GetCellData()->GetArray(ui->comboBoxCenterlineIdsArray->currentIndex())->GetRange()[1];
 		i++)
 	{
 		ui->comboBoxCenterlineIds->addItem(QString::number(i));
 	}
+
+	// connect combobox signal
+	connect(ui->comboBoxCenterlineIdsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::updateCenterlineIdsComboBox);
+	connect(ui->comboBoxCenterlineIds, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+	connect(ui->comboBoxAbscissasArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+	connect(ui->comboBoxYArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+
+	emit signalSetCenterlineIdsArray(this->ui->comboBoxCenterlineIdsArray->currentText());
 }
 
 void CenterlinesInfoWidget::UpdatePlot()

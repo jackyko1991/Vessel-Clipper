@@ -18,8 +18,7 @@
 #include <vtkCubeSource.h>
 #include <vtkCylinderSource.h>
 #include <vtkOutlineFilter.h>
-
-
+#include <vtkBillboardTextActor3D.h>
 
 namespace Ui {
 	class MainWindow;
@@ -77,6 +76,7 @@ public slots:
 	void slotRemoveAllCenterlineKeyPoint();
 	void slotComputeCenterline();
 	void slotCurrentCenterlineKeyPoint();
+	void slotSetCenterlineIdsArray(QString);
 
 	// fiducial
 	void slotAddFiducial();
@@ -170,6 +170,10 @@ private:
 	vtkSmartPointer<vtkPolyDataMapper> m_distalNormalMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	vtkSmartPointer<vtkActor> m_proximalNormalActor = vtkSmartPointer<vtkActor>::New();
 	vtkSmartPointer<vtkActor> m_distalNormalActor = vtkSmartPointer<vtkActor>::New();
+
+	// centerline ids
+	vtkSmartPointer<vtkPolyDataMapper> m_centerlineIdsMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	QList<vtkBillboardTextActor3D*> m_centerlineIdsActors;
 
 	// utils
 	BranchOperation* m_branchOperation;
