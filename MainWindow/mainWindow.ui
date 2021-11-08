@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1152</width>
-    <height>1002</height>
+    <height>1055</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -52,13 +52,19 @@
         <height>0</height>
        </size>
       </property>
+      <property name="maximumSize">
+       <size>
+        <width>322</width>
+        <height>16777215</height>
+       </size>
+      </property>
       <property name="frameShape">
        <enum>QFrame::StyledPanel</enum>
       </property>
       <property name="frameShadow">
        <enum>QFrame::Raised</enum>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
+      <layout class="QVBoxLayout" name="verticalLayout">
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
@@ -179,7 +185,7 @@
         </layout>
        </item>
        <item>
-        <layout class="QVBoxLayout" name="verticalLayout">
+        <layout class="QHBoxLayout" name="horizontalLayout_23">
          <item>
           <widget class="QLabel" name="label_3">
            <property name="text">
@@ -188,56 +194,63 @@
           </widget>
          </item>
          <item>
-          <widget class="QTableWidget" name="tableWidgetCenterline">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>200</height>
-            </size>
+          <widget class="QPushButton" name="pushButtonCenterlineConfigure">
+           <property name="text">
+            <string>Configure</string>
            </property>
-           <column>
-            <property name="text">
-             <string>Point Id</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Abscissas</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Normalized Abscissas</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Points</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Binormal</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Normal</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Tangent</string>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Radius</string>
-            </property>
-           </column>
           </widget>
          </item>
         </layout>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="tableWidgetCenterline">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>200</height>
+          </size>
+         </property>
+         <column>
+          <property name="text">
+           <string>Point Id</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Abscissas</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Normalized Abscissas</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Points</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Binormal</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Normal</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tangent</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Radius</string>
+          </property>
+         </column>
+        </widget>
        </item>
        <item>
         <widget class="QPushButton" name="pushButtonAutoLocateFirstBifurcation">
@@ -331,7 +344,7 @@
           <enum>QTabWidget::North</enum>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="tab">
           <attribute name="title">
@@ -671,39 +684,190 @@
           <attribute name="title">
            <string>Recon</string>
           </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_8">
+          <layout class="QVBoxLayout" name="verticalLayout_9">
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_19">
              <item>
               <widget class="QLabel" name="label_21">
                <property name="text">
-                <string>Radius Array:</string>
+                <string>Current CenterlineIds Array:</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_3"/>
+              <widget class="QLabel" name="labelCurrentCenterlineIdsArray">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_21">
+             <item>
+              <widget class="QListWidget" name="listWidgetCenterlineIdsPending">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>999</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="verticalLayout_8">
+               <item>
+                <widget class="QPushButton" name="pushButtonAddAllRecon">
+                 <property name="maximumSize">
+                  <size>
+                   <width>60</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Add All</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButtonAddRecon">
+                 <property name="maximumSize">
+                  <size>
+                   <width>60</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>-&gt;</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButtonRemoveRecon">
+                 <property name="maximumSize">
+                  <size>
+                   <width>60</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>&lt;-</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButtonRemoveAllRecon">
+                 <property name="maximumSize">
+                  <size>
+                   <width>60</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Remove all</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QListWidget" name="listWidgetCenterlineIdsRecon">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>999</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_20">
              <item>
-              <widget class="QLabel" name="label_22">
+              <widget class="QLabel" name="label_23">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>80</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="text">
-                <string>Abscissas Array:</string>
+                <string>Smooth:</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_4"/>
+              <widget class="QSlider" name="horizontalSliderSmooth">
+               <property name="minimum">
+                <number>0</number>
+               </property>
+               <property name="maximum">
+                <number>100</number>
+               </property>
+               <property name="value">
+                <number>60</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QDoubleSpinBox" name="doubleSpinBoxSmooth">
+               <property name="minimum">
+                <double>0.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.100000000000000</double>
+               </property>
+               <property name="value">
+                <double>0.600000000000000</double>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonResetSurface_3">
+            <widget class="QPushButton" name="pushButtonClip">
              <property name="text">
-              <string>Reconstruct Stenosis</string>
+              <string>Clip</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonInterpolate">
+             <property name="text">
+              <string>Interpolate</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonReconstruct">
+             <property name="text">
+              <string>Reconstruct</string>
              </property>
             </widget>
            </item>
@@ -715,22 +879,36 @@
              <property name="sizeHint" stdset="0">
               <size>
                <width>20</width>
-               <height>230</height>
+               <height>15</height>
               </size>
              </property>
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonResetSurface_2">
+            <widget class="QPushButton" name="pushButtonResetReconSurface">
              <property name="text">
               <string>Reset Surface</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonResetCenterline_2">
+            <widget class="QPushButton" name="pushButtonResetReconCenterline">
              <property name="text">
               <string>Reset Centerline</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonSaveReconSurface">
+             <property name="text">
+              <string>Save Surface</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonSaveReconSurface_2">
+             <property name="text">
+              <string>Save Centerline</string>
              </property>
             </widget>
            </item>
@@ -1262,8 +1440,18 @@ Red Sphere: Centerline Target</string>
     <property name="title">
      <string>Settings</string>
     </property>
-    <addaction name="actionViewer"/>
+    <addaction name="actionPreferences"/>
    </widget>
+   <widget class="QMenu" name="menuFiles">
+    <property name="title">
+     <string>Files</string>
+    </property>
+    <addaction name="actionLoad_Surface"/>
+    <addaction name="actionLoad_Centerline"/>
+    <addaction name="actionLoad_Reconstructed_Surface"/>
+    <addaction name="actionData_Management"/>
+   </widget>
+   <addaction name="menuFiles"/>
    <addaction name="menuUtils"/>
    <addaction name="menuViewer"/>
   </widget>
@@ -1287,9 +1475,9 @@ Red Sphere: Centerline Target</string>
     <string>Extract</string>
    </property>
   </action>
-  <action name="actionViewer">
+  <action name="actionPreferences">
    <property name="text">
-    <string>Perferences</string>
+    <string>Preferences</string>
    </property>
   </action>
   <action name="actionBranch">
@@ -1305,6 +1493,26 @@ Red Sphere: Centerline Target</string>
   <action name="actionResample">
    <property name="text">
     <string>Resample</string>
+   </property>
+  </action>
+  <action name="actionLoad_Surface">
+   <property name="text">
+    <string>Load Surface</string>
+   </property>
+  </action>
+  <action name="actionLoad_Centerline">
+   <property name="text">
+    <string>Load Centerline</string>
+   </property>
+  </action>
+  <action name="actionData_Management">
+   <property name="text">
+    <string>Data Management</string>
+   </property>
+  </action>
+  <action name="actionLoad_Reconstructed_Surface">
+   <property name="text">
+    <string>Load Reconstructed Surface</string>
    </property>
   </action>
  </widget>

@@ -29,6 +29,7 @@ public slots:
 	QVector<double> GetStenosisPoint();
 	QVector<double> GetProximalNormalPoint();
 	QVector<double> GetDistalNormalPoint();
+	void SetCenterlineIdsArray(QString);
 
 private slots :
 	void updateCenterlineIdsComboBox();

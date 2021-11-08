@@ -26,6 +26,7 @@ namespace Ui {
 
 class QProgressBar;
 class BranchOperation;
+class Preferences;
 
 class MainWindow : public QMainWindow
 {
@@ -59,6 +60,14 @@ public slots:
 	void slotSaveSurface();
 	void slotSaveCenterline();
 
+	// recon
+	void slotReconSmoothValueSliderChanged();
+	void slotReconSmoothValueSpinBoxChanged();
+	void slotReconAddAll();
+	void slotReconAddCurrent();
+	void slotReconRemoveAll();
+	void slotReconRemoveCurrent();
+
 	// domain
 	void slotSurfaceCapping();
 	void slotSaveDomain();
@@ -77,6 +86,7 @@ public slots:
 	void slotComputeCenterline();
 	void slotCurrentCenterlineKeyPoint();
 	void slotSetCenterlineIdsArray(QString);
+	void slotCenterlineConfigUpdate();
 
 	// fiducial
 	void slotAddFiducial();
@@ -91,6 +101,8 @@ public slots:
 
 	// action
 	void slotActionBranch();
+	void slotActionPreferences();
+	void slotCenterlineConfigure();
 
 private slots:
 	void readSurfaceFileComplete();
@@ -172,11 +184,13 @@ private:
 	vtkSmartPointer<vtkActor> m_distalNormalActor = vtkSmartPointer<vtkActor>::New();
 
 	// centerline ids
-	vtkSmartPointer<vtkPolyDataMapper> m_centerlineIdsMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	QList<vtkBillboardTextActor3D*> m_centerlineIdsActors;
 
 	// utils
 	BranchOperation* m_branchOperation;
+
+	// settings
+	Preferences* m_preferences;
 };
 
 #endif

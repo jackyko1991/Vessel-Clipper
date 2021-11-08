@@ -170,6 +170,12 @@ QVector<double> CenterlinesInfoWidget::GetDistalNormalPoint()
 	return m_distalNormalPoint;
 }
 
+void CenterlinesInfoWidget::SetCenterlineIdsArray(QString centerlineIdsArrayName)
+{
+	int idx = ui->comboBoxCenterlineIdsArray->findText(centerlineIdsArrayName);
+	ui->comboBoxCenterlineIdsArray->setCurrentIndex(idx);
+}
+
 void CenterlinesInfoWidget::updateCenterlineIdsComboBox()
 {
 	// block combobox signal

@@ -54,6 +54,7 @@
 
 // widgets
 #include "branch_operation.h"
+#include "preferences.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -110,6 +111,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 	// utils
 	m_branchOperation = new BranchOperation();
+
+	// settings
+	m_preferences = new Preferences();
+	m_preferences->SetIO(m_io);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -170,9 +175,18 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveCenterline_3, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputeCenterline);
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
+	connect(m_preferences, SIGNAL(signalComboBoxesUpdated()), this, SLOT(slotCenterlineConfigUpdate()));
 
 	// clipping
 	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+
+	// recon
+	connect(ui->horizontalSliderSmooth, &QSlider::valueChanged, this, &MainWindow::slotReconSmoothValueSliderChanged);
+	connect(ui->doubleSpinBoxSmooth, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotReconSmoothValueSpinBoxChanged);
+	connect(ui->pushButtonAddAllRecon, &QPushButton::clicked, this, &MainWindow::slotReconAddAll);
+	connect(ui->pushButtonAddRecon, &QPushButton::clicked, this, &MainWindow::slotReconAddCurrent);
+	connect(ui->pushButtonRemoveAllRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveAll);
+	connect(ui->pushButtonRemoveRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveCurrent);
 
 	// extend
 
@@ -189,6 +203,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 	// actions
 	connect(ui->actionBranch, &QAction::triggered, this, &MainWindow::slotActionBranch);
+	connect(ui->actionPreferences, &QAction::triggered, this, &MainWindow::slotActionPreferences);
+	connect(ui->pushButtonCenterlineConfigure, &QPushButton::clicked, this, &MainWindow::slotCenterlineConfigure);
+	connect(ui->actionLoad_Surface, &QAction::triggered, this, &MainWindow::slotBrowseSurface);
+	connect(ui->actionLoad_Centerline, &QAction::triggered, this, &MainWindow::slotBrowseCenterline);
 
 	// set stenosis and normal points
 	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetStenosis()), this, SLOT(slotSetStenosisPoint()));
@@ -199,12 +217,12 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
 	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -470,6 +488,59 @@ void MainWindow::slotSaveCenterline()
 	m_io->WriteCenterline(fileName);
 }
 
+void MainWindow::slotReconSmoothValueSliderChanged()
+{
+	ui->doubleSpinBoxSmooth->setValue(ui->horizontalSliderSmooth->value() / 100.0);
+}
+
+void MainWindow::slotReconSmoothValueSpinBoxChanged()
+{
+	ui->horizontalSliderSmooth->setValue(ui->doubleSpinBoxSmooth->value() * 100);
+}
+
+void MainWindow::slotReconAddAll()
+{
+	while (ui->listWidgetCenterlineIdsPending->count() > 0)
+	{
+		QListWidgetItem* currentItem = ui->listWidgetCenterlineIdsPending->item(0);
+		ui->listWidgetCenterlineIdsRecon->addItem(currentItem->text());
+		ui->listWidgetCenterlineIdsPending->takeItem(ui->listWidgetCenterlineIdsPending->row(currentItem));
+	}
+}
+
+void MainWindow::slotReconAddCurrent()
+{
+	QListWidgetItem* currentItem = ui->listWidgetCenterlineIdsPending->currentItem();
+
+	if (currentItem == nullptr)
+		return;
+
+	ui->listWidgetCenterlineIdsRecon->addItem(currentItem->text());
+	ui->listWidgetCenterlineIdsPending->takeItem(ui->listWidgetCenterlineIdsPending->row(currentItem));
+}
+
+void MainWindow::slotReconRemoveAll()
+{
+	while (ui->listWidgetCenterlineIdsRecon->count() > 0)
+	{
+		QListWidgetItem* currentItem = ui->listWidgetCenterlineIdsRecon->item(0);
+		ui->listWidgetCenterlineIdsPending->addItem(currentItem->text());
+		ui->listWidgetCenterlineIdsRecon->takeItem(ui->listWidgetCenterlineIdsRecon->row(currentItem));
+	}
+}
+
+void MainWindow::slotReconRemoveCurrent()
+{
+	QListWidgetItem* currentItem = ui->listWidgetCenterlineIdsRecon->currentItem();
+
+	if (currentItem == nullptr)
+		return;
+	if (currentItem == nullptr)
+		return;
+	ui->listWidgetCenterlineIdsPending->addItem(currentItem->text());
+	ui->listWidgetCenterlineIdsRecon->takeItem(ui->listWidgetCenterlineIdsRecon->row(currentItem));
+}
+
 void MainWindow::slotSurfaceCapping()
 {
 	// remove all old data
@@ -550,16 +621,18 @@ void MainWindow::slotSurfaceCapping()
 			bc.center = center;
 
 			// set the radius
-			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius") != nullptr)
-				bc.radius = m_io->GetOriginalCenterline()->GetPointData()->GetArray("Radius")->GetComponent(id, 0);
+			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray(
+				m_preferences->GetRadiusArrayName().toStdString().c_str()) != nullptr)
+				bc.radius = m_io->GetOriginalCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(id, 0);
 
 			// set the tangent
-			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent") != nullptr)
+			if (m_io->GetOriginalCenterline()->GetPointData()->GetArray(
+				m_preferences->GetFrenetTangentArrayName().toStdString().c_str()) != nullptr)
 			{
 				QVector<double> tangent(3);
-				tangent[0] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 0);
-				tangent[1] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 1);
-				tangent[2] = m_io->GetOriginalCenterline()->GetPointData()->GetArray("FrenetTangent")->GetComponent(id, 2);
+				tangent[0] = m_io->GetOriginalCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(id, 0);
+				tangent[1] = m_io->GetOriginalCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(id, 1);
+				tangent[2] = m_io->GetOriginalCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(id, 2);
 
 				bc.tangent = tangent;
 			}
@@ -942,10 +1015,10 @@ void MainWindow::slotSetCenterlineIdsArray(QString name)
 	std::cout << name.toStdString() << std::endl;
 
 	// remove old actors
-	while (m_centerlineIdsActors.size() > 1)
+	while (m_centerlineIdsActors.size() > 0)
 	{
-		m_renderer->RemoveActor(m_centerlineIdsActors.last());
-		m_centerlineIdsActors.pop_back();
+		m_renderer->RemoveActor(m_centerlineIdsActors.first());
+		m_centerlineIdsActors.pop_front();
 	}
 
 	vtkDataArray* centerlineIds = m_io->GetCenterline()->GetCellData()->GetArray(name.toStdString().c_str());
@@ -968,11 +1041,7 @@ void MainWindow::slotSetCenterlineIdsArray(QString name)
 
 		double* plotPoint = geomFilter->GetOutput()->GetPoint(geomFilter->GetOutput()->GetNumberOfPoints() - 1);
 
-		m_renderer->SetWorldPoint(plotPoint);
-		m_renderer->WorldToDisplay();
-		double* dispPoint = m_renderer->GetDisplayPoint();
-
-		vtkSmartPointer<vtkBillboardTextActor3D > actor = vtkSmartPointer<vtkBillboardTextActor3D >::New();
+		vtkSmartPointer<vtkBillboardTextActor3D> actor = vtkSmartPointer<vtkBillboardTextActor3D >::New();
 		std::string dispText = std::to_string(i);
 		actor->SetInput(dispText.c_str());
 		actor->SetPosition(plotPoint);
@@ -981,7 +1050,32 @@ void MainWindow::slotSetCenterlineIdsArray(QString name)
 		m_renderer->AddActor(actor);
 		m_centerlineIdsActors.push_back(actor);
 	}
+
+	// config update
+	m_preferences->SetCenterlineIdsArrayName(name);
+
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotCenterlineConfigUpdate()
+{
+	this->updateCenterlineDataTable();
+
+	// recon tab update
+	ui->labelCurrentCenterlineIdsArray->setText(m_preferences->GetCenterlineIdsArrayName());
+
+	ui->listWidgetCenterlineIdsPending->clear();
+	ui->listWidgetCenterlineIdsRecon->clear();
+
+	vtkDataArray* centerlineIdsArray = m_io->GetCenterline()->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+	if (centerlineIdsArray == nullptr)
+		return;
+
+	for (int i = centerlineIdsArray->GetRange()[0];i<= centerlineIdsArray->GetRange()[1];i++)
+		ui->listWidgetCenterlineIdsPending->addItem(QString::number(i));
+
+	// centerlines info widget update
+	ui->centerlinesInfoWidget->SetCenterlineIdsArray(m_preferences->GetCenterlineIdsArrayName());
 }
 
 void MainWindow::slotAddFiducial()
@@ -1065,46 +1159,41 @@ void MainWindow::slotSetProximalNormalPoint()
 
 	int id = locator->FindClosestPoint(pt);
 
-	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent");
-	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal");
-	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal");
-	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
+	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
+	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str());
+	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str());
+	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
 	if (tangentArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetTangent\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetTangentArrayName().toStdString() <<"\" not found in centerline" << std::endl;
 		return;
 	}
 	if (normalArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetNormal\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetNormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 	if (binormalArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetBinormal\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetBinormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 	if (radiusArray == nullptr)
 	{
-		std::cout << "Point data array \"Radius\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetRadiusArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 
-	std::cout << "normal: " <<
-		tangentArray->GetTuple(id)[0] << "," <<
-		tangentArray->GetTuple(id)[1] << "," <<
-		tangentArray->GetTuple(id)[2] << std::endl;
-
 	double center2origin[3];
-	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0]);
-	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1]);
-	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2]);
+	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[0]);
+	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[1]);
+	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[2]);
 
 	double center2origin_norm = vtkMath::Norm(center2origin);
-	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id));
-	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id));
+	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id));
+	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id));
 
-	double radius = m_io->GetCenterline()->GetPointData()->GetArray("Radius")->GetTuple(id)[0];
+	double radius = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(id)[0];
 	double origin[3];
 
 	double size_factor = 3.;
@@ -1114,14 +1203,14 @@ void MainWindow::slotSetProximalNormalPoint()
 	origin[2] = m_io->GetCenterline()->GetPoint(id)[2] + size_factor * radius*center2origin[2] / center2origin_norm;
 
 	double point1[3];
-	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] / normal_norm;
-	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] / normal_norm;
-	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] / normal_norm;
+	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[0] / normal_norm;
+	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[1] / normal_norm;
+	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[2] / normal_norm;
 
 	double point2[3];
-	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0] / binormal_norm;
-	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1] / binormal_norm;
-	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2] / binormal_norm;
+	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[0] / binormal_norm;
+	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[1] / binormal_norm;
+	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[2] / binormal_norm;
 
 	vtkSmartPointer<vtkPlaneSource> plane = vtkSmartPointer<vtkPlaneSource>::New();
 	plane->SetOrigin(origin);
@@ -1152,46 +1241,41 @@ void MainWindow::slotSetDistalNormalPoint()
 
 	int id = locator->FindClosestPoint(pt);
 
-	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetTangent");
-	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal");
-	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal");
-	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray("Radius");
+	vtkDataArray* tangentArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
+	vtkDataArray* normalArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str());
+	vtkDataArray* binormalArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str());
+	vtkDataArray* radiusArray = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
 	if (tangentArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetTangent\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetTangentArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 	if (normalArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetNormal\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetNormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 	if (binormalArray == nullptr)
 	{
-		std::cout << "Point data array \"FrenetBinormal\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetFrenetBinormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 	if (radiusArray == nullptr)
 	{
-		std::cout << "Point data array \"Radius\" not found in centerline" << std::endl;
+		std::cout << "Point data array \"" << m_preferences->GetRadiusArrayName().toStdString() << "\" not found in centerline" << std::endl;
 		return;
 	}
 
-	std::cout << "normal: " <<
-		tangentArray->GetTuple(id)[0] << "," <<
-		tangentArray->GetTuple(id)[1] << "," <<
-		tangentArray->GetTuple(id)[2] << std::endl;
-
 	double center2origin[3];
-	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0]);
-	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1]);
-	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2]);
+	center2origin[0] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[0] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[0]);
+	center2origin[1] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[1] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[1]);
+	center2origin[2] = -1 * (m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[2] + m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[2]);
 
 	double center2origin_norm = vtkMath::Norm(center2origin);
-	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id));
-	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id));
+	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id));
+	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id));
 
-	double radius = m_io->GetCenterline()->GetPointData()->GetArray("Radius")->GetTuple(id)[0];
+	double radius = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(id)[0];
 	double origin[3];
 
 	double size_factor = 3.;
@@ -1201,15 +1285,14 @@ void MainWindow::slotSetDistalNormalPoint()
 	origin[2] = m_io->GetCenterline()->GetPoint(id)[2] + size_factor * radius*center2origin[2] / center2origin_norm;
 
 	double point1[3];
-	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[0] / normal_norm;
-	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[1] / normal_norm;
-	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetNormal")->GetTuple(id)[2] / normal_norm;
+	point1[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[0] / normal_norm;
+	point1[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[1] / normal_norm;
+	point1[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id)[2] / normal_norm;
 
 	double point2[3];
-	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[0] / binormal_norm;
-	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[1] / binormal_norm;
-	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray("FrenetBinormal")->GetTuple(id)[2] / binormal_norm;
-
+	point2[0] = origin[0] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[0] / binormal_norm;
+	point2[1] = origin[1] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[1] / binormal_norm;
+	point2[2] = origin[2] + sqrt(2)*size_factor * radius*m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id)[2] / binormal_norm;
 	vtkSmartPointer<vtkPlaneSource> plane = vtkSmartPointer<vtkPlaneSource>::New();
 	plane->SetOrigin(origin);
 	plane->SetPoint1(point1);
@@ -1223,6 +1306,17 @@ void MainWindow::slotSetDistalNormalPoint()
 void MainWindow::slotActionBranch()
 {
 	m_branchOperation->show();
+}
+
+void MainWindow::slotActionPreferences()
+{
+	m_preferences->show();
+}
+
+void MainWindow::slotCenterlineConfigure()
+{
+	m_preferences->SetCurrentTab(0);
+	m_preferences->show();
 }
 
 void MainWindow::slotExit()
@@ -1366,7 +1460,8 @@ void MainWindow::updateCenterlineDataTable()
 			new QTableWidgetItem(QString::number(i)));
 		// abscissas
 
-		vtkDataArray* abscissas = centerline->GetPointData()->GetArray("Abscissas");
+		vtkDataArray* abscissas = centerline->GetPointData()->GetArray(
+			m_preferences->GetAbscissasArrayName().toStdString().c_str());
 		if (abscissas != nullptr)
 		{
 			ui->tableWidgetCenterline->setItem(
@@ -1407,7 +1502,8 @@ void MainWindow::updateCenterlineDataTable()
 			));
 
 		// binormal
-		vtkDataArray* binormal = centerline->GetPointData()->GetArray("FrenetBinormal");
+		vtkDataArray* binormal = centerline->GetPointData()->GetArray(
+			m_preferences->GetFrenetBinormalArrayName().toStdString().c_str());
 		if (binormal != nullptr)
 		{
 			ui->tableWidgetCenterline->setItem(
@@ -1432,7 +1528,8 @@ void MainWindow::updateCenterlineDataTable()
 		}
 
 		// normal
-		vtkDataArray* normal = centerline->GetPointData()->GetArray("FrenetNormal");
+		vtkDataArray* normal = centerline->GetPointData()->GetArray(
+			m_preferences->GetFrenetNormalArrayName().toStdString().c_str());
 		if (normal != nullptr)
 		{
 			ui->tableWidgetCenterline->setItem(
@@ -1457,7 +1554,8 @@ void MainWindow::updateCenterlineDataTable()
 		}
 
 		// tangent
-		vtkDataArray* tangent = centerline->GetPointData()->GetArray("FrenetTangent");
+		vtkDataArray* tangent = centerline->GetPointData()->GetArray(
+			m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
 		if (tangent != nullptr)
 		{
 			ui->tableWidgetCenterline->setItem(
@@ -1482,7 +1580,8 @@ void MainWindow::updateCenterlineDataTable()
 		}
 
 		// radius
-		vtkDataArray* radius = centerline->GetPointData()->GetArray("Radius");
+		vtkDataArray* radius = centerline->GetPointData()->GetArray(
+			m_preferences->GetRadiusArrayName().toStdString().c_str());
 		if (radius != nullptr)
 		{
 			ui->tableWidgetCenterline->setItem(
@@ -2051,6 +2150,7 @@ void MainWindow::readCenterlineFileComplete()
 		this->renderCenterline();
 		this->updateCenterlinesInfoWidget();
 		this->renderFirstBifurcationPoint();
+		m_preferences->slotUpdateArrays();
 
 		m_renderer->ResetCamera();
 		this->updateCenterlineDataTable();

@@ -93,6 +93,7 @@ private:
 	vtkSmartPointer<vtkPolyData> m_original_centerline = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_surface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> m_reconSurface = vtkSmartPointer<vtkPolyData>::New();
 
 	QList<QPair<QVector<double>, bool>> m_centerlineKeyPoints;
 	QList<QPair<QVector<double>, FiducialType>> m_fiducial;
