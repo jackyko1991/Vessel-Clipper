@@ -45,12 +45,21 @@
 #include "vtkCellData.h"
 #include "vtkTextMapper.h"
 #include "vtkProperty2D.h"
+#include "vtkLookupTable.h"
+#include "vtkTriangleFilter.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
 #include "vtkvmtkCenterlineAttributesFilter.h"
 #include "vtkvmtkCenterlineGeometry.h"
 #include "vtkvmtkCenterlineBranchExtractor.h"
+#include "vtkvmtkCapPolyData.h"
+#include "vtkPolyDataNormals.h"
+#include "vtkDelaunay3D.h"
+#include "vtkvmtkInternalTetrahedraExtractor.h"
+#include "vtkvmtkVoronoiDiagram3D.h"
+#include "vtkvmtkSimplifyVoronoiDiagram.h"
+#include "vtkvmtkPolyDataSurfaceRemeshing.h"
 
 // widgets
 #include "branch_operation.h"
@@ -119,7 +128,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
 	m_surfaceActor->GetProperty()->SetColor(1, 1, 1);
-	m_surfaceActor->GetProperty()->SetOpacity(0.5);
+	m_surfaceActor->GetProperty()->SetOpacity(0.25);
 
 	m_centerlineActor->SetMapper(m_centerlineMapper);
 	m_centerlineActor->GetProperty()->SetColor(1, 1, 1);
@@ -128,11 +137,25 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_distalNormalActor->SetMapper(m_distalNormalMapper);
 	m_proximalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
 	m_distalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
+
+	// voronoi diagram
+	vtkSmartPointer<vtkLookupTable> lut = vtkSmartPointer<vtkLookupTable>::New();
+	lut->SetNumberOfColors(256);
+	lut->SetHueRange(0, 0.667);
+	lut->Build();
+
+	m_voronoiMapper->SetLookupTable(lut);
+	m_voronoiMapper->ScalarVisibilityOn();
+
+	m_vornoiActor->SetMapper(m_voronoiMapper);
+	m_vornoiActor->GetProperty()->SetOpacity(this->ui->doubleSpinBoxVoronoiOpacity->value());
 	
+	// add actors to renderer
 	m_renderer->AddActor(m_surfaceActor);
 	m_renderer->AddActor(m_centerlineActor);
 	m_renderer->AddActor(m_proximalNormalActor);
 	m_renderer->AddActor(m_distalNormalActor);
+	m_renderer->AddActor(m_vornoiActor);
 
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
@@ -165,6 +188,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonDeleteCap, &QPushButton::clicked, this, &MainWindow::slotRemoveCap);
 	connect(ui->comboBoxClipperStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::slotSetClipper);
 	connect(ui->pushButtonDeleteAllCap, &QPushButton::clicked, this, &MainWindow::slotRemoveAllCaps);
+	connect(ui->checkBoxWireframe, &QCheckBox::stateChanged, this, &MainWindow::slotDisplayWireframe);
 
 	// centerline 
 	connect(ui->pushButtonAddCenterlineKeyPoint, &QPushButton::clicked, this, &MainWindow::slotAddCenterlineKeyPoint);
@@ -180,6 +204,12 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// clipping
 	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 
+	// voronoi
+	connect(ui->pushButtonLoadVoronoi, &QPushButton::clicked, this, &MainWindow::slotBrowseVoronoi);
+	connect(ui->pushButtonComputeVoronoi, &QPushButton::clicked, this, &MainWindow::slotComputeVoronoi);
+	connect(ui->horizontalSliderVoronoiOpacity, &QSlider::valueChanged, this, &MainWindow::slotSliderVoronoiOpacityChanged);
+	connect(ui->doubleSpinBoxVoronoiOpacity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxVoronoiOpacityChanged);
+
 	// recon
 	connect(ui->horizontalSliderSmooth, &QSlider::valueChanged, this, &MainWindow::slotReconSmoothValueSliderChanged);
 	connect(ui->doubleSpinBoxSmooth, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotReconSmoothValueSpinBoxChanged);
@@ -187,6 +217,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonAddRecon, &QPushButton::clicked, this, &MainWindow::slotReconAddCurrent);
 	connect(ui->pushButtonRemoveAllRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveAll);
 	connect(ui->pushButtonRemoveRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveCurrent);
+	connect(ui->pushButtonClip, &QPushButton::clicked, this, &MainWindow::slotReconClip);
 
 	// extend
 
@@ -219,6 +250,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
 	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
 	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/ChanPitChuen/baseline");
 	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
@@ -285,6 +317,13 @@ void MainWindow::slotSliderOpacityChanged()
 	double opacity = ui->horizontalSliderOpacity->value()*1.0 / 100.;
 	ui->doubleSpinBoxOpacity->setValue(opacity);
 	m_surfaceActor->GetProperty()->SetOpacity(opacity);
+
+	// boundary caps
+	QList<vtkActor*>::iterator itr;
+	for (itr = m_boundaryCapActors.begin(); itr < m_boundaryCapActors.end(); ++itr)
+	{
+		(*itr)->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+	}
 	ui->qvtkWidget->update();
 }
 
@@ -292,6 +331,29 @@ void MainWindow::slotSpinBoxOpacityChanged()
 {
 	ui->horizontalSliderOpacity->setValue(ui->doubleSpinBoxOpacity->value()* 100);
 	m_surfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+
+	// boundary caps
+	QList<vtkActor*>::iterator itr;
+	for (itr = m_boundaryCapActors.begin(); itr < m_boundaryCapActors.end(); ++itr)
+	{
+		(*itr)->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+	}
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSliderVoronoiOpacityChanged()
+{
+	double opacity = ui->horizontalSliderVoronoiOpacity->value()*1.0 / 100.;
+	ui->doubleSpinBoxVoronoiOpacity->setValue(opacity);
+	m_vornoiActor->GetProperty()->SetOpacity(opacity);
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSpinBoxVoronoiOpacityChanged()
+{
+	ui->horizontalSliderVoronoiOpacity->setValue(ui->doubleSpinBoxVoronoiOpacity->value() * 100);
+	m_vornoiActor->GetProperty()->SetOpacity(ui->doubleSpinBoxVoronoiOpacity->value());
 	ui->qvtkWidget->update();
 }
 
@@ -488,6 +550,149 @@ void MainWindow::slotSaveCenterline()
 	m_io->WriteCenterline(fileName);
 }
 
+void MainWindow::slotDisplayWireframe(int state)
+{
+	if (state == Qt::CheckState::Checked)
+	{
+		m_surfaceActor->GetProperty()->SetRepresentationToWireframe();
+
+		QList<vtkActor*>::iterator itr;
+		for (itr = m_boundaryCapActors.begin(); itr != m_boundaryCapActors.end(); ++itr)
+		{
+			(*itr)->GetProperty()->SetRepresentationToWireframe();
+		}
+	}
+	else if (state == Qt::CheckState::Unchecked)
+	{
+		m_surfaceActor->GetProperty()->SetRepresentationToSurface();
+		QList<vtkActor*>::iterator itr;
+		for (itr = m_boundaryCapActors.begin(); itr != m_boundaryCapActors.end(); ++itr)
+		{
+			(*itr)->GetProperty()->SetRepresentationToSurface();
+		}
+	}
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotBrowseVoronoi()
+{
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open Voronoi Diagram"), ui->lineEditVoronoi->text(), tr("Voronoi Files (*.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	ui->lineEditVoronoi->setText(fileName);
+
+	m_statusLabel->setText("Loading Voronoi Diagram file...");
+	m_statusProgressBar->setValue(51);
+
+	this->enableUI(false);
+	this->m_io->SetVoronoiPath(fileName);
+
+	// Instantiate the watcher to unlock
+	m_ioWatcher = new QFutureWatcher<bool>;
+	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readVoronoiFileComplete()));
+
+	// use QtConcurrent to run the read file on a new thread;
+	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadVoronoi);
+	m_ioWatcher->setFuture(future);
+}
+
+void MainWindow::slotComputeVoronoi()
+{
+	vtkPolyData* source = m_io->GetSurface();
+	if (source->GetNumberOfPoints() == 0)
+		return;
+
+	std::cout << "start to compute Voronoi diagram..." << std::endl;
+
+	// need to optimize for non ui-blocking
+
+	m_statusLabel->setText("Start to compute Voronoi diagram...");
+	m_statusProgressBar->setValue(0);
+
+	vtkSmartPointer<vtkvmtkCapPolyData> capper = vtkSmartPointer<vtkvmtkCapPolyData>::New();
+	capper->SetInputData(source);
+	capper->Update();
+
+	m_statusLabel->setText("Computing surface normal...");
+	m_statusProgressBar->setValue(10);
+
+	vtkSmartPointer<vtkPolyDataNormals> surfaceNormals = vtkSmartPointer<vtkPolyDataNormals>::New();
+	surfaceNormals->SetInputData(capper->GetOutput());
+	surfaceNormals->SplittingOff();
+	surfaceNormals->AutoOrientNormalsOn();
+	surfaceNormals->SetFlipNormals(false);
+	surfaceNormals->ComputePointNormalsOn();
+	surfaceNormals->ConsistencyOn();
+	surfaceNormals->Update();
+
+	std::cout << "performing delaunay tessellation..." << std::endl;
+
+	m_statusLabel->setText("Performing delaunay tessllation...");
+	m_statusProgressBar->setValue(10);
+
+	vtkSmartPointer<vtkUnstructuredGrid> delaunayTessellation = vtkSmartPointer<vtkUnstructuredGrid>::New();
+
+	vtkSmartPointer<vtkDelaunay3D> delaunayTessellator = vtkSmartPointer<vtkDelaunay3D>::New();
+	delaunayTessellator->CreateDefaultLocator();
+	delaunayTessellator->SetInputConnection(surfaceNormals->GetOutputPort());
+	delaunayTessellator->SetTolerance(0.001);
+	delaunayTessellator->Update();
+	delaunayTessellation->DeepCopy(delaunayTessellator->GetOutput());
+
+	vtkDataArray* normalsArray = surfaceNormals->GetOutput()->GetPointData()->GetNormals();
+	delaunayTessellation->GetPointData()->AddArray(normalsArray);
+
+	std::cout << "extracting internal tetrahedra..." << std::endl;
+	m_statusLabel->setText("Extracting internal tetrahedra...");
+	m_statusProgressBar->setValue(30);
+
+	vtkSmartPointer<vtkvmtkInternalTetrahedraExtractor> internalTetrahedraExtractor = vtkSmartPointer<vtkvmtkInternalTetrahedraExtractor>::New();
+	internalTetrahedraExtractor->SetInputData(delaunayTessellation);
+	internalTetrahedraExtractor->SetOutwardNormalsArrayName(normalsArray->GetName());
+	internalTetrahedraExtractor->RemoveSubresolutionTetrahedraOn();
+	internalTetrahedraExtractor->SetSubresolutionFactor(1e-2); //1.0
+	internalTetrahedraExtractor->SetSurface(surfaceNormals->GetOutput());
+
+	if (capper->GetCapCenterIds()->GetNumberOfIds() > 0)
+	{
+		internalTetrahedraExtractor->UseCapsOn();
+		internalTetrahedraExtractor->SetCapCenterIds(capper->GetCapCenterIds());
+		internalTetrahedraExtractor->Update();
+	}
+
+	delaunayTessellation->DeepCopy(internalTetrahedraExtractor->GetOutput());
+
+	std::cout << "computing Voronoi diagram..." << std::endl;
+	m_statusLabel->setText("Computing Vornoi diagram...");
+	m_statusProgressBar->setValue(60);
+
+	vtkSmartPointer<vtkvmtkVoronoiDiagram3D> voronoiDiagramFilter = vtkSmartPointer<vtkvmtkVoronoiDiagram3D>::New();
+	voronoiDiagramFilter->SetInputData(delaunayTessellation);
+	voronoiDiagramFilter->SetRadiusArrayName("Radius");
+	voronoiDiagramFilter->Update();
+
+	std::cout << "simplifying Voronoi diagram..." << std::endl;
+	m_statusLabel->setText("Simplifying Vornoi diagram...");
+	m_statusProgressBar->setValue(80);
+
+	vtkSmartPointer<vtkvmtkSimplifyVoronoiDiagram> voronoiDiagramSimplifier = vtkSmartPointer<vtkvmtkSimplifyVoronoiDiagram>::New();
+	voronoiDiagramSimplifier->SetInputData(voronoiDiagramFilter->GetOutput());
+	voronoiDiagramSimplifier->SetUnremovablePointIds(voronoiDiagramFilter->GetPoleIds());
+	voronoiDiagramSimplifier->Update();
+
+	m_io->SetVornoiDiagram(voronoiDiagramSimplifier->GetOutput());
+
+	std::cout << "Voronoi diagram complete" << std::endl;
+	m_statusLabel->setText("Voronoi diagram complete");
+	m_statusProgressBar->setValue(100);
+
+	this->renderVoronoi();
+}
+
 void MainWindow::slotReconSmoothValueSliderChanged()
 {
 	ui->doubleSpinBoxSmooth->setValue(ui->horizontalSliderSmooth->value() / 100.0);
@@ -539,6 +744,15 @@ void MainWindow::slotReconRemoveCurrent()
 		return;
 	ui->listWidgetCenterlineIdsPending->addItem(currentItem->text());
 	ui->listWidgetCenterlineIdsRecon->takeItem(ui->listWidgetCenterlineIdsRecon->row(currentItem));
+}
+
+void MainWindow::slotReconClip()
+{
+	vtkPolyData* centerline = m_io->GetCenterline();
+	if (centerline == nullptr)
+		return;
+
+
 }
 
 void MainWindow::slotSurfaceCapping()
@@ -593,8 +807,22 @@ void MainWindow::slotSurfaceCapping()
 		geomFilter2->SetInputConnection(thresholdFilter->GetOutputPort());
 		geomFilter2->Update();
 
+		// triangulate the boundary caps
+		vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+		triangleFilter->SetInputData(geomFilter2->GetOutput());
+		triangleFilter->Update();
+
+		// ui blocking, need to fix
+		// remesh to equal space, this may have small gap between surface and the boundary caps, need to fix
+		vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
+		surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
+		surfaceRemeshing->SetMinArea(1e-3);
+		surfaceRemeshing->SetMaxArea(1e-2);
+		surfaceRemeshing->SetNumberOfIterations(10);
+		surfaceRemeshing->Update();
+
 		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
-		cap_poly->DeepCopy(geomFilter2->GetOutput());
+		cap_poly->DeepCopy(surfaceRemeshing->GetOutput());
 
 		// inject into io database
 		BoundaryCap bc;
@@ -1358,6 +1586,22 @@ void MainWindow::renderCenterline()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::renderVoronoi()
+{
+	if (!(m_io->GetVoronoiDiagram()->GetNumberOfCells() > 0 ||
+		m_io->GetVoronoiDiagram()->GetNumberOfPoints() > 0))
+	{
+		return;
+	}
+
+	m_io->GetVoronoiDiagram()->GetPointData()->SetActiveScalars("Radius");
+
+	m_voronoiMapper->SetInputData(m_io->GetVoronoiDiagram());
+	m_voronoiMapper->SetScalarRange(m_io->GetVoronoiDiagram()->GetScalarRange());
+
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::renderFirstBifurcationPoint()
 {
 	QVector<double> point = m_io->GetCenterlineFirstBifurcationPoint();
@@ -1838,6 +2082,16 @@ void MainWindow::renderBoundaryCaps()
 			break;
 		}
 		actor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
+
+		if (ui->checkBoxWireframe->checkState() == Qt::CheckState::Checked)
+		{
+			actor->GetProperty()->SetRepresentationToWireframe();
+		}
+		else if (ui->checkBoxWireframe->checkState() == Qt::CheckState::Unchecked)
+		{
+			actor->GetProperty()->SetRepresentationToSurface();
+		}
+
 		m_boundaryCapActors.append(actor);
 		m_renderer->AddActor(actor);
 	}
@@ -2162,6 +2416,29 @@ void MainWindow::readCenterlineFileComplete()
 	}
 
 	this->updateCenterlinesInfoWidget();
+
+	m_statusProgressBar->setValue(100);
+
+	// unlock ui
+	this->enableUI(true);
+
+	delete m_ioWatcher;
+}
+
+void MainWindow::readVoronoiFileComplete()
+{
+	if (!m_ioWatcher->future().result())
+	{
+		m_statusLabel->setText("Loading Voronoi file complete");
+		this->renderVoronoi();
+
+		m_renderer->ResetCamera();
+		ui->qvtkWidget->update();
+	}
+	else
+	{
+		m_statusLabel->setText("Loading Voronoi file fail");
+	}
 
 	m_statusProgressBar->setValue(100);
 

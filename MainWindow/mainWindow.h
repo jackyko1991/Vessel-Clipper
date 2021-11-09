@@ -59,6 +59,14 @@ public slots:
 	void slotResetCenterline();
 	void slotSaveSurface();
 	void slotSaveCenterline();
+	void slotDisplayWireframe(int);
+
+	// voronoi
+	void slotBrowseVoronoi();
+	void slotComputeVoronoi();
+	void slotSliderVoronoiOpacityChanged();
+	void slotSpinBoxVoronoiOpacityChanged();
+
 
 	// recon
 	void slotReconSmoothValueSliderChanged();
@@ -67,6 +75,7 @@ public slots:
 	void slotReconAddCurrent();
 	void slotReconRemoveAll();
 	void slotReconRemoveCurrent();
+	void slotReconClip();
 
 	// domain
 	void slotSurfaceCapping();
@@ -107,12 +116,14 @@ public slots:
 private slots:
 	void readSurfaceFileComplete();
 	void readCenterlineFileComplete();
+	void readVoronoiFileComplete();
 
 private:
 	Ui::MainWindow *ui;
 	void enableUI(bool);
 	void renderSurface();
 	void renderCenterline();
+	void renderVoronoi();
 	void renderFirstBifurcationPoint();
 	void renderCenterlineKeyPoints();
 	void updateCenterlineKeyPointsTable();
@@ -163,6 +174,10 @@ private:
 	// clip transform
 	int m_clppingPointId = 0;
 	vtkSmartPointer<vtkTransform> m_clipTransform = vtkSmartPointer<vtkTransform>::New();
+
+	// vornoi diagram
+	vtkSmartPointer<vtkPolyDataMapper> m_voronoiMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_vornoiActor = vtkSmartPointer<vtkActor>::New();
 
 	// boundary caps
 	QList<vtkActor*> m_boundaryCapActors;

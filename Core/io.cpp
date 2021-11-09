@@ -16,8 +16,6 @@
 #include "vtkKdTreePointLocator.h"
 #include "vtkAppendPolyData.h"
 #include "vtkCleanPolyData.h"
-#include "vtkTriangleFilter.h"
-#include "vtkvmtkPolyDataSurfaceRemeshing.h"
 
 // json
 #include <nlohmann/json.hpp>
@@ -32,6 +30,11 @@ IO::IO(QObject* parent)
 IO::~IO()
 {
 
+}
+
+void IO::SetVoronoiPath(QString path)
+{
+	m_voronoiFile.setFile(path);
 }
 
 bool IO::ReadSurface()
@@ -170,6 +173,73 @@ bool IO::ReadCenterline()
 	return 0;
 }
 
+bool IO::ReadVoronoi()
+{
+	if (!(m_voronoiFile.isFile() && m_voronoiFile.exists()))
+	{
+		emit voronoiFileReadStatus(1);
+		return 1;
+	}
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_voronoiFile.suffix() == "vtp" || m_voronoiFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+		reader->SetFileName(m_voronoiFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit voronoiFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
+			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit voronoiFileReadStatus(0);
+		}
+	}
+	else if (m_voronoiFile.suffix() == "stl" || m_voronoiFile.suffix() == "STL")
+	{
+		vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
+		reader->SetFileName(m_voronoiFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit voronoiFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
+			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit voronoiFileReadStatus(0);
+		}
+	}
+	else if (m_voronoiFile.suffix() == "vtk" || m_voronoiFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+		reader->SetFileName(m_voronoiFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit voronoiFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
+			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit voronoiFileReadStatus(0);
+		}
+	}
+	return 0;
+}
+
 bool IO::WriteSurface(QString path)
 {
 	QFileInfo m_saveSurfaceFile(path);
@@ -296,6 +366,16 @@ void IO::SetCenterline(vtkPolyData *polydata)
 	m_centerline->DeepCopy(polydata);
 }
 
+vtkPolyData * IO::GetVoronoiDiagram()
+{
+	return m_voronoiDiagram;
+}
+
+void IO::SetVornoiDiagram(vtkPolyData* polydata)
+{
+	m_voronoiDiagram->DeepCopy(polydata);
+}
+
 vtkPolyData * IO::GetOriginalSurface()
 {
 	return m_original_surface;
@@ -419,22 +499,24 @@ void IO::WriteDomain()
 		boundaryCapFileList.append(boundaryCapFile);
 		writer->SetFileName(boundaryCapFile.absoluteFilePath().toStdString().c_str());
 
-		vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
-		triangleFilter->SetInputData(m_boundaryCaps.at(i).polydata);
-		triangleFilter->Update();
+		//vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+		//triangleFilter->SetInputData(m_boundaryCaps.at(i).polydata);
+		//triangleFilter->Update();
 
-		// make triangles into same size
-		vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
-		surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
-		surfaceRemeshing->SetMinArea(1e-3);
-		surfaceRemeshing->SetMaxArea(1e-2);
-		surfaceRemeshing->SetNumberOfIterations(10);
-		surfaceRemeshing->Update();
+		//// make triangles into same size
+		//vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
+		//surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
+		//surfaceRemeshing->SetMinArea(1e-3);
+		//surfaceRemeshing->SetMaxArea(1e-2);
+		//surfaceRemeshing->SetNumberOfIterations(10);
+		//surfaceRemeshing->Update();
 
-		writer->SetInputData(surfaceRemeshing->GetOutput());
+		//writer->SetInputData(surfaceRemeshing->GetOutput());
+		writer->SetInputData(m_boundaryCaps.at(i).polydata);
 		writer->Update();
 
-		appendFilter->AddInputData(surfaceRemeshing->GetOutput());
+		//appendFilter->AddInputData(triangleFilter->GetOutput());
+		appendFilter->AddInputData(m_boundaryCaps.at(i).polydata);
 	}
 
 	appendFilter->Update();
