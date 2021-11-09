@@ -66,7 +66,7 @@ public slots:
 	void slotComputeVoronoi();
 	void slotSliderVoronoiOpacityChanged();
 	void slotSpinBoxVoronoiOpacityChanged();
-
+	void slotSaveVoronoi();
 
 	// recon
 	void slotReconSmoothValueSliderChanged();
@@ -76,6 +76,7 @@ public slots:
 	void slotReconRemoveAll();
 	void slotReconRemoveCurrent();
 	void slotReconClip();
+	void slotReconInterpolate();
 
 	// domain
 	void slotSurfaceCapping();

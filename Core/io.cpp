@@ -346,6 +346,50 @@ bool IO::WriteCenterline(QString path)
 	return 0;
 }
 
+bool IO::WriteVoronoi(QString path)
+{
+	QFileInfo m_saveVoronoiFile(path);
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_saveVoronoiFile.suffix() == "vtp" || m_saveVoronoiFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writer->SetFileName(m_saveVoronoiFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_voronoiDiagram);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit voronoiFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit voronoiFileWriteStatus(0);
+		}
+	}
+	else if (m_saveVoronoiFile.suffix() == "vtk" || m_saveVoronoiFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+		writer->SetFileName(m_saveVoronoiFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_voronoiDiagram);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit voronoiFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit voronoiFileWriteStatus(0);
+		}
+	}
+
+	return 0;
+}
+
 vtkPolyData * IO::GetSurface()
 {
 	return m_surface;
@@ -374,6 +418,16 @@ vtkPolyData * IO::GetVoronoiDiagram()
 void IO::SetVornoiDiagram(vtkPolyData* polydata)
 {
 	m_voronoiDiagram->DeepCopy(polydata);
+}
+
+vtkPolyData * IO::GetInterpolatedCenterline()
+{
+	return m_interpolatedCenterline;
+}
+
+void IO::SetInterpolatedCenterline(vtkPolyData *polydata)
+{
+	m_interpolatedCenterline->DeepCopy(polydata);
 }
 
 vtkPolyData * IO::GetOriginalSurface()

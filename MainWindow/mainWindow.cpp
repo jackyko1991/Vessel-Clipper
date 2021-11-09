@@ -47,6 +47,9 @@
 #include "vtkProperty2D.h"
 #include "vtkLookupTable.h"
 #include "vtkTriangleFilter.h"
+#include "vtkParametricSpline.h"
+#include "vtkParametricFunctionSource.h"
+#include "vtkSplineFilter.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
@@ -209,6 +212,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonComputeVoronoi, &QPushButton::clicked, this, &MainWindow::slotComputeVoronoi);
 	connect(ui->horizontalSliderVoronoiOpacity, &QSlider::valueChanged, this, &MainWindow::slotSliderVoronoiOpacityChanged);
 	connect(ui->doubleSpinBoxVoronoiOpacity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxVoronoiOpacityChanged);
+	connect(ui->pushButtonSaveVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
 
 	// recon
 	connect(ui->horizontalSliderSmooth, &QSlider::valueChanged, this, &MainWindow::slotReconSmoothValueSliderChanged);
@@ -217,7 +221,8 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonAddRecon, &QPushButton::clicked, this, &MainWindow::slotReconAddCurrent);
 	connect(ui->pushButtonRemoveAllRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveAll);
 	connect(ui->pushButtonRemoveRecon, &QPushButton::clicked, this, &MainWindow::slotReconRemoveCurrent);
-	connect(ui->pushButtonClip, &QPushButton::clicked, this, &MainWindow::slotReconClip);
+	connect(ui->pushButtonReconClip, &QPushButton::clicked, this, &MainWindow::slotReconClip);
+	connect(ui->pushButtonInterpolate, &QPushButton::clicked, this, &MainWindow::slotReconInterpolate);
 
 	// extend
 
@@ -355,6 +360,20 @@ void MainWindow::slotSpinBoxVoronoiOpacityChanged()
 	ui->horizontalSliderVoronoiOpacity->setValue(ui->doubleSpinBoxVoronoiOpacity->value() * 100);
 	m_vornoiActor->GetProperty()->SetOpacity(ui->doubleSpinBoxVoronoiOpacity->value());
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSaveVoronoi()
+{
+	if (m_io->GetVoronoiDiagram()->GetNumberOfPoints() == 0)
+		return;
+
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Voronoi Diagram File"), ui->lineEditVoronoi->text(), tr("Voronoi Diagram Files (*.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->WriteVoronoi(fileName);
 }
 
 void MainWindow::slotCurrentPickingPoint()
@@ -752,7 +771,207 @@ void MainWindow::slotReconClip()
 	if (centerline == nullptr)
 		return;
 
+	vtkDataArray* centerlineIds = centerline->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+	if (centerlineIds == nullptr)
+	{
+		m_statusLabel->setText("Invalid centerlineids array");
+		m_statusProgressBar->setValue(100);
+		return;
+	}
 
+	// clip centerline
+	m_statusLabel->setText("Clipping centerline");
+	m_statusProgressBar->setValue(10);
+
+	vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
+	
+	// threshold with abscissas
+	vtkSmartPointer<vtkKdTreePointLocator> locator = vtkSmartPointer<vtkKdTreePointLocator>::New();
+	locator->SetDataSet(m_io->GetCenterline());
+	locator->BuildLocator();
+
+	double proximalPt[3] = {
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetProximalNormalPoint()[2]
+	};
+
+	double distalPt[3] = {
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[0],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[1],
+		ui->centerlinesInfoWidget->GetDistalNormalPoint()[2]
+	};
+
+	int proximalId = locator->FindClosestPoint(proximalPt);
+	int distalId = locator->FindClosestPoint(distalPt);
+
+	vtkDataArray* abscissas = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+
+	if (abscissas == nullptr)
+	{
+		m_statusLabel->setText("Invalid abscissas array, fail to clip");
+		m_statusProgressBar->setValue(100);
+	}
+
+	double threshold_bound[2] = {
+		abscissas->GetTuple(proximalId)[0],
+		abscissas->GetTuple(distalId)[0]
+	};
+
+
+	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
+	{
+		// threshold to get independent centerline
+		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
+		threshold->ThresholdBetween(i, i);
+		threshold->SetInputData(m_io->GetCenterline());
+		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+		threshold->Update();
+
+		// convert threshold output to vtkpolydata
+		vtkSmartPointer<vtkGeometryFilter> geometryFilter = vtkSmartPointer<vtkGeometryFilter> ::New();
+		geometryFilter->SetInputData(threshold->GetOutput());
+		geometryFilter->Update();
+
+		if (threshold->GetOutput()->GetNumberOfPoints() == 0)
+			continue;
+
+		vtkSmartPointer<vtkPolyData> singleCenterline = geometryFilter->GetOutput();
+		singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+
+		// if the single centerline is not the one in recon centerline list, direct append to output
+		bool recon = true;
+		for (int j = 0; j < ui->listWidgetCenterlineIdsPending->count(); j++)
+		{
+			int centerlineId = ui->listWidgetCenterlineIdsPending->item(j)->text().toInt();
+			if (centerlineId == i)
+			{
+				recon = false;
+				break;
+			}
+		}
+
+		if (recon)
+		{
+			// compute section to clip
+			vtkSmartPointer<vtkClipPolyData> clipper1 = vtkSmartPointer<vtkClipPolyData>::New();
+			clipper1->SetValue(threshold_bound[0]);
+			clipper1->SetInsideOut(true);
+			clipper1->GenerateClippedOutputOn();
+			clipper1->SetInputData(singleCenterline);
+			clipper1->Update();
+
+			vtkSmartPointer<vtkClipPolyData> clipper2 = vtkSmartPointer<vtkClipPolyData>::New();
+			clipper2->SetValue(threshold_bound[1]);
+			clipper2->SetInsideOut(false);
+			clipper2->GenerateClippedOutputOn();
+			clipper2->SetInputData(singleCenterline);
+			clipper2->Update();
+
+			vtkSmartPointer<vtkAppendPolyData> appendFilter2 = vtkSmartPointer<vtkAppendPolyData>::New();
+			appendFilter2->AddInputData(clipper1->GetOutput());
+			appendFilter2->AddInputData(clipper2->GetOutput());
+			appendFilter2->Update();
+
+			appendFilter->AddInputData(appendFilter2->GetOutput());
+		}
+		else
+		{
+			appendFilter->AddInputData(singleCenterline);
+		}
+	}
+
+	appendFilter->Update();
+	m_io->SetCenterline(appendFilter->GetOutput());
+
+	this->renderCenterline();
+	this->updateCenterlineDataTable();
+	this->updateCenterlinesInfoWidget();
+
+	m_statusLabel->setText("Clipping centerline complete");
+	m_statusProgressBar->setValue(100);
+}
+
+void MainWindow::slotReconInterpolate()
+{
+	vtkDataArray* centerlineIds = m_io->GetCenterline()->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+	if (centerlineIds == nullptr)
+		return;
+
+	// clip centerline
+	m_statusLabel->setText("Interpolating centerline");
+	m_statusProgressBar->setValue(10);
+
+	vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
+
+	int count = 0;
+
+	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
+	{
+		// threshold to get independent lines
+		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
+		threshold->ThresholdBetween(i, i);
+		threshold->SetInputData(m_io->GetCenterline());
+		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+		threshold->Update();
+
+		// convert threshold output to vtkpolydata
+		vtkSmartPointer<vtkGeometryFilter> geometryFilter = vtkSmartPointer<vtkGeometryFilter> ::New();
+		geometryFilter->SetInputData(threshold->GetOutput());
+		geometryFilter->Update();
+
+		// interpolation with spline
+		vtkNew<vtkParametricSpline> spline;
+		spline->SetPoints(geometryFilter->GetOutput()->GetPoints());
+
+		vtkNew<vtkParametricFunctionSource> functionSource;
+		functionSource->SetParametricFunction(spline);
+		functionSource->Update();
+
+		vtkSmartPointer<vtkSplineFilter> splineFilter = vtkSmartPointer<vtkSplineFilter>::New();
+		splineFilter->SetInputData(functionSource->GetOutput());
+		splineFilter->SetSubdivideToLength();
+		splineFilter->SetLength(0.5);
+		splineFilter->Update();
+
+		vtkNew<vtkPolyData> interpolatedLine;
+		interpolatedLine->DeepCopy(splineFilter->GetOutput());
+
+		// centerline id
+		vtkSmartPointer<vtkIntArray> centerlindIdsArray = vtkSmartPointer<vtkIntArray>::New();
+		centerlindIdsArray->SetNumberOfComponents(1);
+		centerlindIdsArray->SetNumberOfTuples(interpolatedLine->GetNumberOfCells());
+		centerlindIdsArray->SetName("CenterlineIds");
+		centerlindIdsArray->FillComponent(0, i);
+
+		interpolatedLine->GetCellData()->AddArray(centerlindIdsArray);
+
+		appendFilter->AddInputData(interpolatedLine);
+
+		// update progress bar
+		m_statusProgressBar->setValue(10 + i*count/(centerlineIds->GetRange()[1] - centerlineIds->GetRange()[0])*90.0);
+		count++;
+	}
+
+	appendFilter->Update();
+
+	// recompute centerline attributes
+	vtkSmartPointer<vtkvmtkCenterlineAttributesFilter> attributeFilter = vtkSmartPointer<vtkvmtkCenterlineAttributesFilter>::New();
+	attributeFilter->SetInputData(appendFilter->GetOutput());
+	attributeFilter->SetAbscissasArrayName("Abscissas");
+	attributeFilter->SetParallelTransportNormalsArrayName("ParallelTransportNormals");
+	attributeFilter->Update();
+
+	attributeFilter->GetOutput()->Print(std::cout);
+	m_io->SetCenterline(attributeFilter->GetOutput());
+
+	this->renderCenterline();
+	this->updateCenterlineDataTable();
+	this->updateCenterlinesInfoWidget();
+	m_preferences->slotUpdateArrays();
+
+	m_statusLabel->setText("Interpolate centerline complete");
+	m_statusProgressBar->setValue(100);
 }
 
 void MainWindow::slotSurfaceCapping()
@@ -1394,22 +1613,32 @@ void MainWindow::slotSetProximalNormalPoint()
 	if (tangentArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetTangentArrayName().toStdString() <<"\" not found in centerline" << std::endl;
+		m_proximalNormalActor->SetVisibility(false);
 		return;
 	}
 	if (normalArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetNormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
+		m_proximalNormalActor->SetVisibility(false);
 		return;
 	}
 	if (binormalArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetBinormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
+		m_proximalNormalActor->SetVisibility(false);
 		return;
 	}
+
+	double radius;
 	if (radiusArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetRadiusArrayName().toStdString() << "\" not found in centerline" << std::endl;
-		return;
+		//m_proximalNormalActor->SetVisibility(false);
+		radius = 2;
+	}
+	else
+	{
+		radius = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(id)[0];
 	}
 
 	double center2origin[3];
@@ -1421,7 +1650,6 @@ void MainWindow::slotSetProximalNormalPoint()
 	double normal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetNormalArrayName().toStdString().c_str())->GetTuple(id));
 	double binormal_norm = vtkMath::Norm(m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetFrenetBinormalArrayName().toStdString().c_str())->GetTuple(id));
 
-	double radius = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(id)[0];
 	double origin[3];
 
 	double size_factor = 3.;
@@ -1476,22 +1704,31 @@ void MainWindow::slotSetDistalNormalPoint()
 	if (tangentArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetTangentArrayName().toStdString() << "\" not found in centerline" << std::endl;
+		m_distalNormalActor->SetVisibility(false);
 		return;
 	}
 	if (normalArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetNormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
+		m_distalNormalActor->SetVisibility(false);
 		return;
 	}
 	if (binormalArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetFrenetBinormalArrayName().toStdString() << "\" not found in centerline" << std::endl;
+		m_distalNormalActor->SetVisibility(false);
 		return;
 	}
+	double radius;
 	if (radiusArray == nullptr)
 	{
 		std::cout << "Point data array \"" << m_preferences->GetRadiusArrayName().toStdString() << "\" not found in centerline" << std::endl;
-		return;
+		//m_proximalNormalActor->SetVisibility(false);
+		radius = 2;
+	}
+	else
+	{
+		radius = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(id)[0];
 	}
 
 	double center2origin[3];
@@ -1581,6 +1818,7 @@ void MainWindow::renderCenterline()
 		return;
 	}
 
+	m_centerlineMapper->SetScalarVisibility(false);
 	m_centerlineMapper->SetInputData(m_io->GetCenterline());
 
 	ui->qvtkWidget->update();

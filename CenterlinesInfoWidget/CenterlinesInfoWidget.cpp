@@ -98,6 +98,7 @@ void CenterlinesInfoWidget::SetCenterlines(vtkPolyData *centerlines)
 
 	// auto select centerlineids and abscissas array
 	ui->comboBoxCenterlineIdsArray->setCurrentIndex(centerlineids_idx);
+	this->updateCenterlineIdsComboBox();
 	ui->comboBoxAbscissasArray->setCurrentIndex(abscissas_idx);
 }
 

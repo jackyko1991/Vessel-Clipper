@@ -351,7 +351,7 @@
           <enum>QTabWidget::North</enum>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>3</number>
          </property>
          <widget class="QWidget" name="tab">
           <attribute name="title">
@@ -974,14 +974,14 @@
             </layout>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonClip">
+            <widget class="QPushButton" name="pushButtonReconClip">
              <property name="text">
               <string>Clip</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonInterpolate">
+            <widget class="QPushButton" name="pushButtonReconInterpolate">
              <property name="text">
               <string>Interpolate</string>
              </property>
@@ -991,6 +991,13 @@
             <widget class="QPushButton" name="pushButtonReconstruct">
              <property name="text">
               <string>Reconstruct</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonResetRecon">
+             <property name="text">
+              <string>Reset</string>
              </property>
             </widget>
            </item>
@@ -1008,30 +1015,23 @@
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonResetReconSurface">
-             <property name="text">
-              <string>Reset Surface</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushButtonResetReconCenterline">
-             <property name="text">
-              <string>Reset Centerline</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="pushButtonSaveReconSurface">
              <property name="text">
-              <string>Save Surface</string>
+              <string>Save Reconstructed Surface</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButtonSaveReconSurface_2">
+            <widget class="QPushButton" name="pushButtonSaveReconCenterline">
              <property name="text">
               <string>Save Centerline</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButtonSaveReconVoronoi">
+             <property name="text">
+              <string>Save Voronoi</string>
              </property>
             </widget>
            </item>
