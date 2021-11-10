@@ -100,6 +100,7 @@ void CenterlinesInfoWidget::SetCenterlines(vtkPolyData *centerlines)
 	ui->comboBoxCenterlineIdsArray->setCurrentIndex(centerlineids_idx);
 	this->updateCenterlineIdsComboBox();
 	ui->comboBoxAbscissasArray->setCurrentIndex(abscissas_idx);
+	emit signalSetAbscissasArray(this->ui->comboBoxAbscissasArray->currentText());
 }
 
 void CenterlinesInfoWidget::SetCursorPosition(double x, double y, double z)
@@ -175,6 +176,12 @@ void CenterlinesInfoWidget::SetCenterlineIdsArray(QString centerlineIdsArrayName
 {
 	int idx = ui->comboBoxCenterlineIdsArray->findText(centerlineIdsArrayName);
 	ui->comboBoxCenterlineIdsArray->setCurrentIndex(idx);
+}
+
+void CenterlinesInfoWidget::SetAbscissasArray(QString abscissasArrayName)
+{
+	int idx = ui->comboBoxAbscissasArray->findText(abscissasArrayName);
+	ui->comboBoxAbscissasArray->setCurrentIndex(idx);
 }
 
 void CenterlinesInfoWidget::updateCenterlineIdsComboBox()

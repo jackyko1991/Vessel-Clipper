@@ -77,6 +77,7 @@ public slots:
 	void slotReconRemoveCurrent();
 	void slotReconClip();
 	void slotReconInterpolate();
+	void slotResetRecon();
 
 	// domain
 	void slotSurfaceCapping();
@@ -96,6 +97,7 @@ public slots:
 	void slotComputeCenterline();
 	void slotCurrentCenterlineKeyPoint();
 	void slotSetCenterlineIdsArray(QString);
+	void slotSetAbscissasArray(QString);
 	void slotCenterlineConfigUpdate();
 
 	// fiducial

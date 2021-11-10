@@ -21,6 +21,7 @@ public:
 	void SetIO(IO*);
 	void SetCurrentTab(int);
 	void SetCenterlineIdsArrayName(QString);
+	void SetAbscissasArrayName(QString);
 	QString GetCenterlineIdsArrayName();
 	QString GetAbscissasArrayName();
 	QString GetFrenetTangentArrayName();

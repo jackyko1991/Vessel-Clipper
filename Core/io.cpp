@@ -440,6 +440,11 @@ vtkPolyData * IO::GetOriginalCenterline()
 	return m_original_centerline;
 }
 
+vtkPolyData * IO::GetOriginalVoronoiDiagram()
+{
+	return m_original_voronoiDiagram;
+}
+
 void IO::SetCenterlineFirstBifurcationPoint(QVector<double> point)
 {
 	m_firstBifurcationPoint[0] = point[0];

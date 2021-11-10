@@ -44,6 +44,14 @@ void Preferences::SetCenterlineIdsArrayName(QString name)
 	ui->comboBoxCenterlineIdsArray->setCurrentIndex(idx);
 }
 
+void Preferences::SetAbscissasArrayName(QString name)
+{
+	std::cout << name.toStdString() << std::endl;
+
+	int idx = ui->comboBoxAbscissasArray->findText(name);
+	ui->comboBoxAbscissasArray->setCurrentIndex(idx);
+}
+
 QString Preferences::GetCenterlineIdsArrayName()
 {
 	return ui->comboBoxCenterlineIdsArray->currentText();

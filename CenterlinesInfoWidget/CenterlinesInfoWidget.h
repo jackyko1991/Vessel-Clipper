@@ -30,6 +30,7 @@ public slots:
 	QVector<double> GetProximalNormalPoint();
 	QVector<double> GetDistalNormalPoint();
 	void SetCenterlineIdsArray(QString);
+	void SetAbscissasArray(QString);
 
 private slots :
 	void updateCenterlineIdsComboBox();
@@ -39,6 +40,7 @@ signals:
 	void signalSetProximalNormal();
 	void signalSetDistalNormal();
 	void signalSetCenterlineIdsArray(QString);
+	void signalSetAbscissasArray(QString);
 
 private:
 	Ui::CenterlinesInfoWidget *ui;

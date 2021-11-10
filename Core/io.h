@@ -50,6 +50,7 @@ public:
 	void SetInterpolatedCenterline(vtkPolyData*);
 	vtkPolyData* GetOriginalSurface();
 	vtkPolyData* GetOriginalCenterline();
+	vtkPolyData* GetOriginalVoronoiDiagram();
 	void SetCenterlineFirstBifurcationPoint(QVector<double>);
 	QVector<double> GetCenterlineFirstBifurcationPoint();
 	void AutoLocateFirstBifurcationPoint();

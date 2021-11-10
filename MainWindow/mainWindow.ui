@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1152</width>
-    <height>1055</height>
+    <width>1233</width>
+    <height>1017</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1009,7 +1009,7 @@
              <property name="sizeHint" stdset="0">
               <size>
                <width>20</width>
-               <height>15</height>
+               <height>0</height>
               </size>
              </property>
             </spacer>
@@ -1546,7 +1546,7 @@ Red Sphere: Centerline Target</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1152</width>
+     <width>1233</width>
      <height>21</height>
     </rect>
    </property>
