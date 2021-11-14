@@ -143,6 +143,7 @@ private:
 	void updateFiducialTable();
 	void renderFiducial();
 	void updateCenterlinesInfoWidget();
+	vtkPolyData* ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData* clippedCenterline, int idx, bool dir, float len);
 
 	IO* m_io;
 

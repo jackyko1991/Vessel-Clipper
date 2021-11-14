@@ -21,6 +21,7 @@ Preferences::Preferences(QWidget *parent) :
 	connect(this->ui->comboBoxFrenetNormalArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	connect(this->ui->comboBoxFrenetTangentArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	connect(this->ui->comboBoxRadiusArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
+	connect(this->ui->comboBoxParallelTransportNormalsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 }
 
 Preferences::~Preferences()
@@ -82,6 +83,11 @@ QString Preferences::GetRadiusArrayName()
 	return ui->comboBoxRadiusArray->currentText();
 }
 
+QString Preferences::GetParallelTransportNormalsName()
+{
+	return ui->comboBoxParallelTransportNormalsArray->currentText();
+}
+
 void Preferences::slotConfigurationSet()
 {
 	emit signalComboBoxesUpdated();
@@ -99,6 +105,7 @@ void Preferences::slotUpdateArrays()
 	disconnect(this->ui->comboBoxFrenetNormalArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	disconnect(this->ui->comboBoxFrenetTangentArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	disconnect(this->ui->comboBoxRadiusArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
+	disconnect(this->ui->comboBoxParallelTransportNormalsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 
 	// remove all combobox items
 	ui->comboBoxCenterlineIdsArray->clear();
@@ -107,6 +114,7 @@ void Preferences::slotUpdateArrays()
 	ui->comboBoxFrenetNormalArray->clear();
 	ui->comboBoxFrenetBinormalArray->clear();
 	ui->comboBoxRadiusArray->clear();
+	ui->comboBoxParallelTransportNormalsArray->clear();
 
 	int centerlineidsIdx = 0;
 	int abscissasIdx = 0;
@@ -114,6 +122,7 @@ void Preferences::slotUpdateArrays()
 	int frenetNormalIdx = 0;
 	int frenetBinormalIdx = 0;
 	int radiusIdx = 0;
+	int parallelTransportNomralsIdx = 0;
 
 	ui->comboBoxCenterlineIdsArray->addItem("");
 	ui->comboBoxAbscissasArray->addItem("");
@@ -121,6 +130,7 @@ void Preferences::slotUpdateArrays()
 	ui->comboBoxFrenetNormalArray->addItem("");
 	ui->comboBoxFrenetBinormalArray->addItem("");
 	ui->comboBoxRadiusArray->addItem("");
+	ui->comboBoxParallelTransportNormalsArray->addItem("");
 
 	for (int i = 0; i < m_io->GetCenterline()->GetCellData()->GetNumberOfArrays(); i++)
 	{
@@ -137,6 +147,7 @@ void Preferences::slotUpdateArrays()
 		ui->comboBoxFrenetNormalArray->addItem(m_io->GetCenterline()->GetPointData()->GetArrayName(i));
 		ui->comboBoxFrenetBinormalArray->addItem(m_io->GetCenterline()->GetPointData()->GetArrayName(i));
 		ui->comboBoxRadiusArray->addItem(m_io->GetCenterline()->GetPointData()->GetArrayName(i));
+		ui->comboBoxParallelTransportNormalsArray->addItem(m_io->GetCenterline()->GetPointData()->GetArrayName(i));
 
 		if (QString(m_io->GetCenterline()->GetPointData()->GetArrayName(i)).contains("Abscissas"))
 			abscissasIdx = i + 1;
@@ -148,6 +159,8 @@ void Preferences::slotUpdateArrays()
 			frenetBinormalIdx = i + 1;
 		if (QString(m_io->GetCenterline()->GetPointData()->GetArrayName(i)).contains("Radius"))
 			radiusIdx = i + 1;
+		if (QString(m_io->GetCenterline()->GetPointData()->GetArrayName(i)).contains("ParallelTransportNormals"))
+			parallelTransportNomralsIdx = i + 1;
 	}
 
 	ui->comboBoxCenterlineIdsArray->setCurrentIndex(centerlineidsIdx);
@@ -156,6 +169,7 @@ void Preferences::slotUpdateArrays()
 	ui->comboBoxFrenetNormalArray->setCurrentIndex(frenetNormalIdx);
 	ui->comboBoxFrenetBinormalArray->setCurrentIndex(frenetBinormalIdx);
 	ui->comboBoxRadiusArray->setCurrentIndex(radiusIdx);
+	ui->comboBoxParallelTransportNormalsArray->setCurrentIndex(parallelTransportNomralsIdx);
 
 	// reconnect signal slots
 	connect(this->ui->comboBoxCenterlineIdsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
@@ -164,6 +178,7 @@ void Preferences::slotUpdateArrays()
 	connect(this->ui->comboBoxFrenetNormalArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	connect(this->ui->comboBoxFrenetTangentArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 	connect(this->ui->comboBoxRadiusArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
+	connect(this->ui->comboBoxParallelTransportNormalsArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &Preferences::slotConfigurationSet);
 
 	this->slotConfigurationSet();
 }

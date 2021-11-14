@@ -28,6 +28,7 @@ public:
 	QString GetFrenetNormalArrayName();
 	QString GetFrenetBinormalArrayName();
 	QString GetRadiusArrayName();
+	QString GetParallelTransportNormalsName();
 
 public slots:
 	void slotUpdateArrays();
