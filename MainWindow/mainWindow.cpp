@@ -231,6 +231,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonReconInterpolate, &QPushButton::clicked, this, &MainWindow::slotReconInterpolate);
 	connect(ui->pushButtonResetRecon, &QPushButton::clicked, this, &MainWindow::slotResetRecon);
 	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+	connect(ui->pushButtonSaveReconVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
 
 	// extend
 
@@ -262,12 +263,13 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -1029,7 +1031,7 @@ void MainWindow::slotReconClip()
 				compositeFunction0->AddFunction(plane0);
 				compositeFunction0->SetOperationTypeToIntersection();
 
-				double* center1 = threshold->GetOutput()->GetPoint(threshold2->GetOutput()->GetNumberOfPoints() - 1);
+				double* center1 = threshold2->GetOutput()->GetPoint(threshold2->GetOutput()->GetNumberOfPoints() - 1);
 				double tangent1[3];
 				// reverse tangent direction
 				tangent1[0] = -1.0*threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(threshold2->GetOutput()->GetNumberOfPoints() - 1, 0);
@@ -1192,11 +1194,12 @@ void MainWindow::slotReconInterpolate()
 		}
 
 		// prepare the proximal side dataset
-		vtkPolyData* proximalPoints = ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), -1, false, 3);
-		if (proximalPoints->GetNumberOfPoints()>1)
-			voronoiAppendFilter->AddInputData(proximalPoints);
-
-		std::cout << "a11111" << std::endl;
+		vtkSmartPointer<vtkPolyData> proximalPoints = vtkSmartPointer<vtkPolyData>::New();
+		ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), proximalPoints, -1, false, 1.5);
+		std::cout << "clipped proximal points:" << std::endl;
+		proximalPoints->Print(std::cout);
+		if (proximalPoints->GetNumberOfPoints() > 1)
+			voronoiAppendFilter->AddInputData(proximalPoints); 
 
 		// end point
 		threshold2->ThresholdBetween(1, 1);
@@ -1210,14 +1213,13 @@ void MainWindow::slotReconInterpolate()
 			endPoint[i] = geometryFilter2->GetOutput()->GetPoint(0)[i];
 		}
 
-		std::cout << "a22222" << std::endl;
-
 		// prepare the distal side dataset
-		vtkPolyData* distalPoints = ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), 0, true, 3);
+		vtkSmartPointer<vtkPolyData> distalPoints = vtkSmartPointer<vtkPolyData>::New();
+		ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), distalPoints, 0, true, 1.5);
+		std::cout << "clipped distal points:" << std::endl;
+		distalPoints->Print(std::cout);
 		if (distalPoints->GetNumberOfPoints()>1)
 			voronoiAppendFilter->AddInputData(distalPoints);
-
-		std::cout << "a333333" << std::endl;
 
 		// locate the start and end point id from the interpolated centerline
 		vtkSmartPointer<vtkKdTreePointLocator> locator = vtkSmartPointer<vtkKdTreePointLocator>::New();
@@ -1226,11 +1228,12 @@ void MainWindow::slotReconInterpolate()
 		int startId = locator->FindClosestPoint(startPoint);
 		int endId = locator->FindClosestPoint(endPoint);
 
-		std::cout << "interpolate centerlineid " << i << "complete" << std::endl;
+		std::cout << "interpolate centerlineid " << i << " complete" << std::endl;
 
 		// update progress bar
 		m_statusProgressBar->setValue(10 + i*count/(centerlineIds->GetRange()[1] - centerlineIds->GetRange()[0])*90.0);
 		count++;
+		break;
 	}
 
 	centerlineAppendFilter->Update();
@@ -2083,17 +2086,23 @@ void MainWindow::slotSetDistalNormalPoint()
 void MainWindow::slotActionBranch()
 {
 	m_branchOperation->show();
+	m_preferences->raise();
+	m_preferences->activateWindow();
 }
 
 void MainWindow::slotActionPreferences()
 {
 	m_preferences->show();
+	m_preferences->raise();
+	m_preferences->activateWindow();
 }
 
 void MainWindow::slotCenterlineConfigure()
 {
 	m_preferences->SetCurrentTab(0);
 	m_preferences->show();
+	m_preferences->raise();
+	m_preferences->activateWindow();
 }
 
 void MainWindow::slotExit()
@@ -2918,22 +2927,22 @@ void MainWindow::updateCenterlinesInfoWidget()
 	ui->centerlinesInfoWidget->SetCenterlines(m_io->GetCenterline());
 }
 
-vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clippedCenterline, int idx, bool dir, float len)
+void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clippedCenterline, vtkPolyData* outputData, int idx, bool dir, float len)
 {
-	vtkSmartPointer<vtkPolyData> clippedData = vtkSmartPointer<vtkPolyData>::New();
 	if (m_io->GetVoronoiDiagram()->GetNumberOfPoints() == 0)
 	{
 		std::cout << "No point in Voronoi diagram" << std::endl;
-		return clippedData;
+		return;
 	}
+
+	if (outputData == nullptr)
+		outputData = vtkSmartPointer<vtkPolyData>::New();
 
 	std::cout << "extract interpolation data from clipped voronoi diagram" << std::endl;
 
 	vtkDataArray* tangentArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
 	vtkDataArray* parallelTransportNormalsArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetParallelTransportNormalsName().toStdString().c_str());
 	vtkDataArray* radiusArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
-
-
 
 	if (idx = -1)
 		idx = clippedCenterline->GetNumberOfPoints() - 1;
@@ -2943,22 +2952,16 @@ vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyDa
 	std::cout << "length: " << len << std::endl;
 
 	if (tangentArray == nullptr || parallelTransportNormalsArray == nullptr || radiusArray == nullptr)
-		return clippedData;
-
-	std::cout << "aaaa" << std::endl;
+		return;
 
 	if (tangentArray->GetNumberOfComponents() != 3 || parallelTransportNormalsArray->GetNumberOfComponents() != 3 ||
 		tangentArray->GetTuple(idx) == nullptr || parallelTransportNormalsArray->GetTuple(idx) == nullptr)
-		return clippedData;
-
-	std::cout << "bbbb" << std::endl;
+		return;
 
 	double* tangent = tangentArray->GetTuple(idx);;
 	double* parallelTransportNormal = parallelTransportNormalsArray->GetTuple(idx);
 	double tangentNorm = vtkMath::Norm(tangent);
 	double parallelTransportNormalNorm = vtkMath::Norm(parallelTransportNormal);
-
-	std::cout << "cccc" << std::endl;
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -2969,12 +2972,14 @@ vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyDa
 	double* point = clippedCenterline->GetPoint(idx);
 	double radius = radiusArray->GetTuple1(idx);
 
-	std::cout << "ddddd" << std::endl;
+	std::cout << "center: " << point[0] <<", " << point[1] << ", " << point[2] << std::endl;
+	std::cout << "radius: " << radius << std::endl;
+	std::cout << "tangent: " << tangent[0] << ", " << tangent[1] << ", " << tangent[2] << len << std::endl;
 
 	// create cylinder function
 	vtkSmartPointer<vtkCylinder> cylinderFunction = vtkSmartPointer<vtkCylinder>::New();
 	cylinderFunction->SetCenter(point);
-	cylinderFunction->SetRadius(radius);
+	cylinderFunction->SetRadius(radius*1.5);
 	cylinderFunction->SetAxis(tangent);
 
 	// clip planes
@@ -2983,7 +2988,6 @@ vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyDa
 	double plane1origin[3];
 	double plane2origin[3];
 
-	
 	for (int i = 0; i < 3; i++)
 	{
 		if (dir == true)
@@ -3000,18 +3004,19 @@ vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyDa
 		}
 	}
 
-	planeFunction1->SetOrigin(plane1origin);
-	planeFunction1->SetNormal(tangent[0], tangent[1], tangent[2]);
-	planeFunction2->SetOrigin(plane2origin);
-	planeFunction2->SetNormal(tangent[0]*-1, tangent[1] * -1, tangent[2] * -1);
+	std::cout << "plane1origin: " << plane1origin[0] << ", " << plane1origin[1] << ", " << plane1origin[2] << std::endl;
+	std::cout << "plane2origin: " << plane2origin[0] << ", " << plane2origin[1] << ", " << plane2origin[2] << std::endl;
 
-	std::cout << "eeee" << std::endl;
+	planeFunction1->SetOrigin(plane1origin);
+	planeFunction1->SetNormal(tangent[0]*-1, tangent[1] * -1, tangent[2] * -1);
+	planeFunction2->SetOrigin(plane2origin);
+	planeFunction2->SetNormal(tangent[0]*1, tangent[1] * 1, tangent[2] * 1);
 
 	// create mask array
 	vtkSmartPointer<vtkDoubleArray> mask = vtkSmartPointer<vtkDoubleArray>::New();
 	mask->SetNumberOfComponents(1);
 	mask->SetNumberOfTuples(m_io->GetVoronoiDiagram()->GetNumberOfPoints());
-	mask->SetName("Mask");
+	mask->SetName("Mask2");
 	mask->FillComponent(0, 0);
 
 	// implicit clip function composed by cylinder, plane 1 and plane 2
@@ -3022,24 +3027,18 @@ vtkPolyData * MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyDa
 	compositeFunction->SetOperationTypeToIntersection();
 	compositeFunction->EvaluateFunction(m_io->GetVoronoiDiagram()->GetPoints()->GetData(), mask);
 
-	clippedData->DeepCopy(m_io->GetVoronoiDiagram());
-	clippedData->GetPointData()->AddArray(mask);
-	clippedData->GetPointData()->SetActiveScalars("Mask");
-
-	std::cout << "fffff" << std::endl;
+	outputData->DeepCopy(m_io->GetVoronoiDiagram());
+	outputData->GetPointData()->AddArray(mask);
+	outputData->GetPointData()->SetActiveScalars("Mask2");
 
 	vtkSmartPointer<vtkClipPolyData> clipper = vtkSmartPointer<vtkClipPolyData>::New();
 	clipper->SetValue(1e-6);
 	clipper->SetInsideOut(true);
 	clipper->GenerateClippedOutputOn();
-	clipper->SetInputData(clippedData);
+	clipper->SetInputData(outputData);
 	clipper->Update();
 
-	clippedData->DeepCopy(clipper->GetOutput());
-
-	std::cout << "clipping complete" << std::endl;
-
-	return clippedData;
+	outputData->DeepCopy(clipper->GetOutput());
 }
 
 void MainWindow::readSurfaceFileComplete()
