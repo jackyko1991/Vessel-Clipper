@@ -78,6 +78,7 @@ public slots:
 	void slotReconClip();
 	void slotReconInterpolate();
 	void slotResetRecon();
+	void slotReconstruct();
 
 	// domain
 	void slotSurfaceCapping();
@@ -204,6 +205,10 @@ private:
 
 	// centerline ids
 	QList<vtkBillboardTextActor3D*> m_centerlineIdsActors;
+
+	// reconstructed surface
+	vtkSmartPointer<vtkPolyDataMapper> m_reconSurfaceMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_reconSurfaceActor = vtkSmartPointer<vtkActor>::New();
 
 	// utils
 	BranchOperation* m_branchOperation;

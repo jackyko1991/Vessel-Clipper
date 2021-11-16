@@ -37,6 +37,11 @@ void IO::SetVoronoiPath(QString path)
 	m_voronoiFile.setFile(path);
 }
 
+void IO::SetReconSurfacePath(QString path)
+{
+	m_reconstructedSurfaceFile.setFile(path);
+}
+
 bool IO::ReadSurface()
 {
 	if (!(m_surfaceFile.isFile() && m_surfaceFile.exists()))
@@ -240,6 +245,70 @@ bool IO::ReadVoronoi()
 	return 0;
 }
 
+bool IO::ReadReconSurface()
+{
+	if (!(m_reconstructedSurfaceFile.isFile() && m_reconstructedSurfaceFile.exists()))
+	{
+		emit reconstructedSurfaceFileReadStatus(1);
+		return 1;
+	}
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_voronoiFile.suffix() == "vtp" || m_voronoiFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+		reader->SetFileName(m_reconstructedSurfaceFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit reconstructedSurfaceFileReadStatus(0);
+		}
+	}
+	else if (m_voronoiFile.suffix() == "stl" || m_voronoiFile.suffix() == "STL")
+	{
+		vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
+		reader->SetFileName(m_reconstructedSurfaceFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit reconstructedSurfaceFileReadStatus(0);
+		}
+	}
+	else if (m_reconstructedSurfaceFile.suffix() == "vtk" || m_reconstructedSurfaceFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+		reader->SetFileName(m_reconstructedSurfaceFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit reconstructedSurfaceFileReadStatus(0);
+		}
+	}
+	return 0;
+}
+
 bool IO::WriteSurface(QString path)
 {
 	QFileInfo m_saveSurfaceFile(path);
@@ -369,6 +438,7 @@ bool IO::WriteVoronoi(QString path)
 			emit voronoiFileWriteStatus(0);
 		}
 	}
+
 	else if (m_saveVoronoiFile.suffix() == "vtk" || m_saveVoronoiFile.suffix() == "VTK")
 	{
 		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
@@ -384,6 +454,67 @@ bool IO::WriteVoronoi(QString path)
 		else
 		{
 			emit voronoiFileWriteStatus(0);
+		}
+	}
+
+	return 0;
+}
+
+bool IO::WriteReconSurface(QString path)
+{
+	QFileInfo m_saveReconSurfaceFile(path);
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_saveReconSurfaceFile.suffix() == "vtp" || m_saveReconSurfaceFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writer->SetFileName(m_saveReconSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_reconSurface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit reconstructedSurfaceFileWriteStatus(0);
+		}
+	}
+	else if (m_saveReconSurfaceFile.suffix() == "stl" || m_saveReconSurfaceFile.suffix() == "STL")
+	{
+		vtkSmartPointer<vtkSTLWriter> writer = vtkSmartPointer<vtkSTLWriter>::New();
+		writer->SetFileName(m_saveReconSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_reconSurface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit reconstructedSurfaceFileWriteStatus(0);
+		}
+	}
+	else if (m_saveReconSurfaceFile.suffix() == "vtk" || m_saveReconSurfaceFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+		writer->SetFileName(m_saveReconSurfaceFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_reconSurface);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedSurfaceFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit reconstructedSurfaceFileWriteStatus(0);
 		}
 	}
 
@@ -420,15 +551,25 @@ void IO::SetVornoiDiagram(vtkPolyData* polydata)
 	m_voronoiDiagram->DeepCopy(polydata);
 }
 
-vtkPolyData * IO::GetInterpolatedCenterline()
+vtkPolyData * IO::GetReconstructedSurface()
 {
-	return m_interpolatedCenterline;
+	return m_reconSurface;
 }
 
-void IO::SetInterpolatedCenterline(vtkPolyData *polydata)
+void IO::SetReconstructedSurface(vtkPolyData * polydata)
 {
-	m_interpolatedCenterline->DeepCopy(polydata);
+	m_reconSurface->DeepCopy(polydata);
 }
+
+//vtkPolyData * IO::GetInterpolatedCenterline()
+//{
+//	return m_interpolatedCenterline;
+//}
+//
+//void IO::SetInterpolatedCenterline(vtkPolyData *polydata)
+//{
+//	m_interpolatedCenterline->DeepCopy(polydata);
+//}
 
 vtkPolyData * IO::GetOriginalSurface()
 {

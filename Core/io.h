@@ -30,24 +30,30 @@ public:
 	~IO();
 	void SetSurfacePath(QString path);
 	void SetCenterlinePath(QString path);
-	void SetWriteSurfacePath(QString path);
-	void SetWriteCenterlinePath(QString path);
-	void SetWriteVoronoiPath(QString path);
 	void SetVoronoiPath(QString path);
+	void SetReconSurfacePath(QString path);
+	//void SetWriteSurfacePath(QString path);
+	//void SetWriteCenterlinePath(QString path);
+	//void SetWriteVoronoiPath(QString path);
+	//void SetWriteReconSurfacePath(QString path);
 	bool ReadSurface();
 	bool ReadCenterline();
 	bool ReadVoronoi();
+	bool ReadReconSurface();
 	bool WriteSurface(QString);
 	bool WriteCenterline(QString);
 	bool WriteVoronoi(QString);
+	bool WriteReconSurface(QString);
 	vtkPolyData* GetSurface();
 	void SetSurface(vtkPolyData*);
 	vtkPolyData* GetCenterline();
 	void SetCenterline(vtkPolyData*);
 	vtkPolyData* GetVoronoiDiagram();
 	void SetVornoiDiagram(vtkPolyData*);
-	vtkPolyData* GetInterpolatedCenterline();
-	void SetInterpolatedCenterline(vtkPolyData*);
+	vtkPolyData* GetReconstructedSurface();
+	void SetReconstructedSurface(vtkPolyData*);
+	//vtkPolyData* GetInterpolatedCenterline();
+	//void SetInterpolatedCenterline(vtkPolyData*);
 	vtkPolyData* GetOriginalSurface();
 	vtkPolyData* GetOriginalCenterline();
 	vtkPolyData* GetOriginalVoronoiDiagram();
@@ -81,9 +87,11 @@ signals:
 	void surfaceFileReadStatus(bool);
 	void centerlineFileReadStatus(bool);
 	void voronoiFileReadStatus(bool);
+	void reconstructedSurfaceFileReadStatus(bool);
 	void surfaceFileWriteStatus(bool);
 	void centerlineFileWriteStatus(bool);
 	void voronoiFileWriteStatus(bool);
+	void reconstructedSurfaceFileWriteStatus(bool);
 	void centerlineKeyPointUpdated();
 
 private:
@@ -91,6 +99,7 @@ private:
 	QFileInfo m_centerlineFile;
 	QFileInfo m_domainFile;
 	QFileInfo m_voronoiFile;
+	QFileInfo m_reconstructedSurfaceFile;
 	void updateCenterlineFirstBifurcationPointId();
 	QVector<double> m_firstBifurcationPoint = QVector<double>(3);
 	int m_centerlineFirstBifurcationPointId = 0;
@@ -108,7 +117,7 @@ private:
 	vtkSmartPointer<vtkPolyData> m_centerline = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_reconSurface = vtkSmartPointer<vtkPolyData>::New();
 	vtkSmartPointer<vtkPolyData> m_voronoiDiagram = vtkSmartPointer<vtkPolyData>::New();
-	vtkSmartPointer<vtkPolyData> m_interpolatedCenterline = vtkSmartPointer<vtkPolyData>::New();
+	//vtkSmartPointer<vtkPolyData> m_interpolatedCenterline = vtkSmartPointer<vtkPolyData>::New();
 
 	QList<QPair<QVector<double>, bool>> m_centerlineKeyPoints;
 	QList<QPair<QVector<double>, FiducialType>> m_fiducial;

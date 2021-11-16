@@ -55,6 +55,12 @@
 #include "vtkImplicitBoolean.h"
 #include "vtkDoubleArray.h"
 #include "vtkCylinder.h"
+#include "vtkPointInterpolator.h"
+#include "vtkVoronoiKernel.h"
+#include "vtkPolyDataNormals.h"
+#include "vtkDelaunay3D.h"
+#include "vtkArrayCalculator.h"
+#include "vtkMarchingCubes.h"
 
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
@@ -62,13 +68,12 @@
 #include "vtkvmtkCenterlineGeometry.h"
 #include "vtkvmtkCenterlineBranchExtractor.h"
 #include "vtkvmtkCapPolyData.h"
-#include "vtkPolyDataNormals.h"
-#include "vtkDelaunay3D.h"
 #include "vtkvmtkInternalTetrahedraExtractor.h"
 #include "vtkvmtkVoronoiDiagram3D.h"
 #include "vtkvmtkSimplifyVoronoiDiagram.h"
 #include "vtkvmtkPolyDataSurfaceRemeshing.h"
 #include "vtkvmtkPolyBallLine.h"
+#include "vtkvmtkPolyBallModeller.h"
 
 // widgets
 #include "branch_operation.h"
@@ -232,6 +237,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonResetRecon, &QPushButton::clicked, this, &MainWindow::slotResetRecon);
 	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 	connect(ui->pushButtonSaveReconVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
+	connect(ui->pushButtonReconstruct, &QPushButton::clicked, this, &MainWindow::slotReconstruct);
 
 	// extend
 
@@ -263,13 +269,13 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -1121,6 +1127,8 @@ void MainWindow::slotReconInterpolate()
 
 	int count = 0;
 
+	double maxVoronoiShrinkFactor = 0.3;
+
 	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
 	{
 		// threshold to get independent lines
@@ -1156,8 +1164,30 @@ void MainWindow::slotReconInterpolate()
 		splineFilter->SetLength(0.5);
 		splineFilter->Update();
 
+		// recompute centerline attributes
+		vtkSmartPointer<vtkvmtkCenterlineAttributesFilter> attributeFilter = vtkSmartPointer<vtkvmtkCenterlineAttributesFilter>::New();
+		attributeFilter->SetInputData(splineFilter->GetOutput());
+		attributeFilter->SetAbscissasArrayName("Abscissas");
+		attributeFilter->SetParallelTransportNormalsArrayName("ParallelTransportNormals");
+		attributeFilter->Update();
+
+		vtkSmartPointer<vtkvmtkCenterlineGeometry> centerlineGeometryFilter = vtkSmartPointer<vtkvmtkCenterlineGeometry>::New();
+		centerlineGeometryFilter->SetInputData(attributeFilter->GetOutput());
+		centerlineGeometryFilter->SetFrenetBinormalArrayName("FrenetBinormal");
+		centerlineGeometryFilter->SetFrenetNormalArrayName("FrenetNormal");
+		centerlineGeometryFilter->SetFrenetTangentArrayName("FrenetTangent");
+		centerlineGeometryFilter->SetLengthArrayName("Length");
+		centerlineGeometryFilter->SetTorsionArrayName("Torsion");
+		centerlineGeometryFilter->SetTortuosityArrayName("Tortuosity");
+		centerlineGeometryFilter->SetCurvatureArrayName("Curvature");
+		centerlineGeometryFilter->SetLineSmoothing(0);
+		centerlineGeometryFilter->SetNumberOfSmoothingIterations(100);
+		centerlineGeometryFilter->SetSmoothingFactor(0.1);
+		centerlineGeometryFilter->SetGlobalWarningDisplay(1);
+		centerlineGeometryFilter->Update();
+
 		vtkNew<vtkPolyData> interpolatedLine;
-		interpolatedLine->DeepCopy(splineFilter->GetOutput());
+		interpolatedLine->DeepCopy(centerlineGeometryFilter->GetOutput());
 
 		// centerline id
 		vtkSmartPointer<vtkIntArray> centerlindIdsArray = vtkSmartPointer<vtkIntArray>::New();
@@ -1195,8 +1225,9 @@ void MainWindow::slotReconInterpolate()
 
 		// prepare the proximal side dataset
 		vtkSmartPointer<vtkPolyData> proximalPoints = vtkSmartPointer<vtkPolyData>::New();
-		std::cout << "clipping proximal points" << std::endl;
+		//std::cout << "clipping proximal points" << std::endl;
 		ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), proximalPoints, -1, false, 1.5);
+		
 		if (proximalPoints->GetNumberOfPoints() > 1)
 			voronoiAppendFilter->AddInputData(proximalPoints); 
 
@@ -1214,7 +1245,7 @@ void MainWindow::slotReconInterpolate()
 
 		// prepare the distal side dataset
 		vtkSmartPointer<vtkPolyData> distalPoints = vtkSmartPointer<vtkPolyData>::New();
-		std::cout << "clipping distal points" << std::endl;
+		//std::cout << "clipping distal points" << std::endl;
 		ExtractCylindericInterpolationVoronoiDiagram(geometryFilter2->GetOutput(), distalPoints, 0, true, 1.5);
 		if (distalPoints->GetNumberOfPoints()>1)
 			voronoiAppendFilter->AddInputData(distalPoints);
@@ -1226,76 +1257,189 @@ void MainWindow::slotReconInterpolate()
 		int startId = locator->FindClosestPoint(startPoint);
 		int endId = locator->FindClosestPoint(endPoint);
 
-		std::cout << "interpolate centerlineid " << i << " complete" << std::endl;
+		//std::cout << "interpolate centerlineid " << i << " complete" << std::endl;
+		//interpolatedLine->GetPointData()->Print(std::cout);
+
+		double startAbsci = interpolatedLine->GetPointData()->GetArray("Abscissas")->GetTuple1(startId);
+		double endAbsci = interpolatedLine->GetPointData()->GetArray("Abscissas")->GetTuple1(endId);
+
+		//std::cout << "startId: " << startId << std::endl;
+		//std::cout << "endId: " << endId << std::endl;
+		//std::cout << "start abscissas: " << startAbsci << std::endl;
+		//std::cout << "end abscissas: " << endAbsci << std::endl;
+
+		vtkSmartPointer<vtkCenterOfMass> comProximal = vtkSmartPointer<vtkCenterOfMass>::New();
+		comProximal->SetInputData(proximalPoints);
+		comProximal->SetUseScalarsAsWeights(false);
+		comProximal->Update();
+
+		vtkSmartPointer<vtkCenterOfMass> comDistal = vtkSmartPointer<vtkCenterOfMass>::New();
+		comDistal->SetInputData(distalPoints);
+		comDistal->SetUseScalarsAsWeights(false);
+		comDistal->Update();
 
 		// transform the proximal points along interpolated centerline
-		for (int j = startId; j < endId; j++)
+		for (int j = startId; j <= endId; j++)
 		{
-			double startAbsci = interpolatedLine->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str())->GetTuple1(startId);
-			double endAbsci = interpolatedLine->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str())->GetTuple1(endId);
-			double distFactor = 1- (j- startId) / (endId - startId) * (endAbsci - startAbsci);
+			//std::cout << "=================== pointId: " << j << " ==================="<< std::endl;
+			double distFactor = 1.0 - ((j- startId)*1.0) / ((endId - startId)*1.0) * (1-maxVoronoiShrinkFactor);
+			//std::cout << "distance factor: " << distFactor << std::endl;
 
-			if (j > interpolatedLine->GetNumberOfPoints()-2)
-				break;
+			double point0[3] = { comProximal->GetCenter()[0] ,comProximal->GetCenter()[1] ,comProximal->GetCenter()[2] };
+			interpolatedLine->GetPoint(j,point0);
+			//std::cout << "point0: " << point0[0] << ", " << point0[1] << ", " << point0[2] << std::endl;
 
-			double* point0 = interpolatedLine->GetPoint(j);
-			double* point1 = interpolatedLine->GetPoint(j + 1);
+			double point1[3];
+			interpolatedLine->GetPoint(j ,point1);
+			//std::cout << "point1: " << point1[0] << ", " << point1[1] << ", " << point1[2] << std::endl;
+
 			double tranlateVector[3] = {
-				point1[0] - point0[0],
-				point1[1] - point0[1],
-				point1[2] - point0[2],
+				point1[0] - comProximal->GetCenter()[0],
+				point1[1] - comProximal->GetCenter()[1],
+				point1[2] - comProximal->GetCenter()[2],
 			};
 
+			//std::cout << "translation vector: " << tranlateVector[0] << ", " << tranlateVector[1] << ", " << tranlateVector[2] << std::endl;
+
+			double tangent0[3];
+			interpolatedLine->GetPointData()->GetArray("FrenetTangent")->GetTuple(startId,tangent0);
+			double tangent1[3];
+			interpolatedLine->GetPointData()->GetArray("FrenetTangent")->GetTuple(j, tangent1);
+
+			double ptn0[3];
+			interpolatedLine->GetPointData()->GetArray("ParallelTransportNormals")->GetTuple(startId, ptn0);
+			double ptn1[3];
+			interpolatedLine->GetPointData()->GetArray("ParallelTransportNormals")->GetTuple(j, ptn1);
+
+			// rotate to align tangential direction
+			double rotateAngleTangent = vtkMath::AngleBetweenVectors(tangent0,tangent1);
+			double rodriguesVectorTangent[3];
+			vtkMath::Cross(tangent0, tangent1, rodriguesVectorTangent);
+			//std::cout << "tangent0: " << tangent0[0] << ", " << tangent0[1] << ", " << tangent0[2] << std::endl;
+			//std::cout << "tangent1: " << tangent1[0] << ", " << tangent1[1] << ", " << tangent1[2] << std::endl;
+
+			//std::cout << "rotate angle to align tangential direction: " << rotateAngleTangent*180. / vtkMath::Pi() << std::endl;
+			//std::cout << "Rodrigues vector for tengential alginment: " << rodriguesVectorTangent[0] << ", " << rodriguesVectorTangent[1] << ", " << rodriguesVectorTangent[2] << std::endl;
+
+			// rotate about tangent
+			double ptn0TangentialAligned[3];
+			double q[4] = { rotateAngleTangent ,rodriguesVectorTangent[0],rodriguesVectorTangent[1] ,rodriguesVectorTangent[2] };
+			vtkMath::RotateVectorByWXYZ(ptn0, q, ptn0TangentialAligned);
+			//std::cout << "Rotated parallel transport normal: " << ptn0TangentialAligned[0] << ", " << ptn0TangentialAligned[1] << ", " << ptn0TangentialAligned[2] << std::endl;
+			//std::cout << "Target parallel transport normal: " << ptn1[0] << ", " << ptn1[1] << ", " << ptn1[2] << std::endl;
+			double rotateAnglePTN = vtkMath::AngleBetweenVectors(ptn0TangentialAligned, ptn1);
+			//std::cout << "rotate angle to align PTN direction: " << rotateAnglePTN*180. / vtkMath::Pi() << std::endl;
+
 			vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-			transform->PreMultiply();
+			transform->PostMultiply();
+			transform->Translate(-comProximal->GetCenter()[0], -comProximal->GetCenter()[1], -comProximal->GetCenter()[2]);
 			transform->Scale(distFactor, distFactor, distFactor);
+			transform->RotateWXYZ(rotateAngleTangent*180./vtkMath::Pi(), rodriguesVectorTangent);
+			transform->RotateWXYZ(rotateAnglePTN*180./vtkMath::Pi(), tangent1);
+			transform->Translate(comProximal->GetCenter()[0], comProximal->GetCenter()[1], comProximal->GetCenter()[2]);
 			transform->Translate(tranlateVector[0], tranlateVector[1], tranlateVector[2]);
 			transform->Update();
 
-			vtkSmartPointer<vtkTransformPolyDataFilter> tranformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
-			tranformFilter->SetInputData(proximalPoints);
-			tranformFilter->SetTransform(transform);
-			tranformFilter->Update();
+			vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+			transformFilter->SetInputData(proximalPoints);
+			transformFilter->SetTransform(transform);
+			transformFilter->Update();
 
-			voronoiAppendFilter->AddInputData(tranformFilter->GetOutput());
+			proximalPoints->GetPointData()->Print(std::cout);
+			transformFilter->GetOutput()->GetPointData()->Print(std::cout);
+
+			voronoiAppendFilter->AddInputData(transformFilter->GetOutput());
+		}
+
+		// transform the distal points along interpolated centerline
+		for (int j = endId; j >= startId; j--)
+		{
+			//std::cout << "=================== pointId: " << j << " ===================" << std::endl;
+			double distFactor = ((j - startId)*1.0) / ((endId - startId)*1.0)* (1 - maxVoronoiShrinkFactor) + maxVoronoiShrinkFactor;
+			//std::cout << "distance factor: " << distFactor << std::endl;
+
+			double point0[3] = { comDistal->GetCenter()[0] ,comDistal->GetCenter()[1] ,comDistal->GetCenter()[2] };
+			//std::cout << "point0: " << point0[0] << ", " << point0[1] << ", " << point0[2] << std::endl;
+
+			double point1[3];
+			interpolatedLine->GetPoint(j, point1);
+			//std::cout << "point1: " << point1[0] << ", " << point1[1] << ", " << point1[2] << std::endl;
+
+			double tranlateVector[3] = {
+				point1[0] - comDistal->GetCenter()[0],
+				point1[1] - comDistal->GetCenter()[1],
+				point1[2] - comDistal->GetCenter()[2],
+			};
+
+			//std::cout << "translation vector: " << tranlateVector[0] << ", " << tranlateVector[1] << ", " << tranlateVector[2] << std::endl;
+
+			double tangent0[3];
+			interpolatedLine->GetPointData()->GetArray("FrenetTangent")->GetTuple(endId, tangent0);
+			double tangent1[3];
+			interpolatedLine->GetPointData()->GetArray("FrenetTangent")->GetTuple(j, tangent1);
+
+			double ptn0[3];
+			interpolatedLine->GetPointData()->GetArray("ParallelTransportNormals")->GetTuple(endId, ptn0);
+			double ptn1[3];
+			interpolatedLine->GetPointData()->GetArray("ParallelTransportNormals")->GetTuple(j, ptn1);
+
+			// rotate to align tangential direction
+			double rotateAngleTangent = vtkMath::AngleBetweenVectors(tangent0, tangent1);
+			double rodriguesVectorTangent[3];
+			vtkMath::Cross(tangent0, tangent1, rodriguesVectorTangent);
+			//std::cout << "tangent0: " << tangent0[0] << ", " << tangent0[1] << ", " << tangent0[2] << std::endl;
+			//std::cout << "tangent1: " << tangent1[0] << ", " << tangent1[1] << ", " << tangent1[2] << std::endl;
+
+			//std::cout << "rotate angle to align tangential direction: " << rotateAngleTangent*180. / vtkMath::Pi() << std::endl;
+			//std::cout << "Rodrigues vector for tengential alginment: " << rodriguesVectorTangent[0] << ", " << rodriguesVectorTangent[1] << ", " << rodriguesVectorTangent[2] << std::endl;
+
+			// rotate about tangent
+			double ptn0TangentialAligned[3];
+			double q[4] = { rotateAngleTangent ,rodriguesVectorTangent[0],rodriguesVectorTangent[1] ,rodriguesVectorTangent[2] };
+			vtkMath::RotateVectorByWXYZ(ptn0, q, ptn0TangentialAligned);
+			//std::cout << "Rotated parallel transport normal: " << ptn0TangentialAligned[0] << ", " << ptn0TangentialAligned[1] << ", " << ptn0TangentialAligned[2] << std::endl;
+			//std::cout << "Target parallel transport normal: " << ptn1[0] << ", " << ptn1[1] << ", " << ptn1[2] << std::endl;
+			double rotateAnglePTN = vtkMath::AngleBetweenVectors(ptn0TangentialAligned, ptn1);
+			//std::cout << "rotate angle to align PTN direction: " << rotateAnglePTN*180. / vtkMath::Pi() << std::endl;
+
+			vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+			transform->PostMultiply();
+			transform->Translate(-comDistal->GetCenter()[0], -comDistal->GetCenter()[1], -comDistal->GetCenter()[2]);
+			transform->Scale(distFactor, distFactor, distFactor);
+			transform->RotateWXYZ(rotateAngleTangent*180. / vtkMath::Pi(), rodriguesVectorTangent);
+			transform->RotateWXYZ(rotateAnglePTN*180. / vtkMath::Pi(), tangent1);
+			transform->Translate(comDistal->GetCenter()[0], comDistal->GetCenter()[1], comDistal->GetCenter()[2]);
+			transform->Translate(tranlateVector[0], tranlateVector[1], tranlateVector[2]);
+			transform->Update();
+
+			vtkSmartPointer<vtkTransformPolyDataFilter> transformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+			transformFilter->SetInputData(distalPoints);
+			transformFilter->SetTransform(transform);
+			transformFilter->Update();
+
+			voronoiAppendFilter->AddInputData(transformFilter->GetOutput());
 		}
 
 		// update progress bar
 		m_statusProgressBar->setValue(10 + i*count/(centerlineIds->GetRange()[1] - centerlineIds->GetRange()[0])*90.0);
 		count++;
-		break;
 	}
 
 	centerlineAppendFilter->Update();
+	voronoiAppendFilter->AddInputData(m_io->GetVoronoiDiagram());
 	voronoiAppendFilter->Update();
 
 	std::cout << "interpolate voronoi diagram complete" << std::endl;
 
+	// get radius from interpolated voronoi diagram to centerline
+	vtkSmartPointer<vtkPointInterpolator> interpolator = vtkSmartPointer<vtkPointInterpolator>::New();
+	interpolator->SetInputData(centerlineAppendFilter->GetOutput());
+	interpolator->SetSourceData(voronoiAppendFilter->GetOutput());
+	interpolator->SetKernel(vtkSmartPointer<vtkVoronoiKernel>::New());
+	interpolator->Update();
+
 	m_io->SetVornoiDiagram(voronoiAppendFilter->GetOutput());
-
-	// recompute centerline attributes
-	vtkSmartPointer<vtkvmtkCenterlineAttributesFilter> attributeFilter = vtkSmartPointer<vtkvmtkCenterlineAttributesFilter>::New();
-	attributeFilter->SetInputData(centerlineAppendFilter->GetOutput());
-	attributeFilter->SetAbscissasArrayName("Abscissas");
-	attributeFilter->SetParallelTransportNormalsArrayName("ParallelTransportNormals");
-	attributeFilter->Update();
-
-	vtkSmartPointer<vtkvmtkCenterlineGeometry> geometryFilter = vtkSmartPointer<vtkvmtkCenterlineGeometry>::New();
-	geometryFilter->SetInputData(attributeFilter->GetOutput());
-	geometryFilter->SetFrenetBinormalArrayName("FrenetBinormal");
-	geometryFilter->SetFrenetNormalArrayName("FrenetNormal");
-	geometryFilter->SetFrenetTangentArrayName("FrenetTangent");
-	geometryFilter->SetLengthArrayName("Length");
-	geometryFilter->SetTorsionArrayName("Torsion");
-	geometryFilter->SetTortuosityArrayName("Tortuosity");
-	geometryFilter->SetCurvatureArrayName("Curvature");
-	geometryFilter->SetLineSmoothing(0);
-	geometryFilter->SetNumberOfSmoothingIterations(100);
-	geometryFilter->SetSmoothingFactor(0.1);
-	geometryFilter->SetGlobalWarningDisplay(1);
-	geometryFilter->Update();
-
-	m_io->SetCenterline(geometryFilter->GetOutput());
+	m_io->GetCenterline()->DeepCopy(interpolator->GetOutput());
 
 	this->renderCenterline();
 	this->renderVoronoi();
@@ -1303,7 +1447,7 @@ void MainWindow::slotReconInterpolate()
 	this->updateCenterlinesInfoWidget();
 	m_preferences->slotUpdateArrays();
 
-	m_statusLabel->setText("Interpolate centerline complete");
+	m_statusLabel->setText("Interpolation complete");
 	m_statusProgressBar->setValue(100);
 }
 
@@ -1312,6 +1456,64 @@ void MainWindow::slotResetRecon()
 	this->slotResetCenterline();
 	m_io->SetVornoiDiagram(m_io->GetOriginalVoronoiDiagram());
 	this->renderVoronoi();
+}
+
+void MainWindow::slotReconstruct()
+{
+	vtkPolyData* voronoi = m_io->GetVoronoiDiagram();
+	vtkPolyData* centerline = m_io->GetCenterline();
+	if (voronoi->GetNumberOfPoints() == 0 || centerline->GetNumberOfPoints() == 0)
+		return;
+
+	// perform smooth
+	// create implict function with spheres along clipped centerline
+	vtkSmartPointer<vtkArrayCalculator> cal = vtkSmartPointer<vtkArrayCalculator>::New();
+	cal->SetInputData(m_io->GetCenterline());
+	cal->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	char buffer[999];
+	sprintf(buffer, "%s * %f", m_preferences->GetRadiusArrayName().toStdString(), 1. - ui->doubleSpinBoxSmooth->value());
+	cal->SetFunction(buffer);
+	cal->SetResultArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	cal->Update();
+	//std::cout << "smooth function: " << cal->GetFunction() << std::endl;
+
+	vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunction = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
+	tubeFunction->SetInput((vtkPolyData*)cal->GetOutput());
+	tubeFunction->SetPolyBallRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	
+	vtkSmartPointer<vtkDoubleArray> maskArray = vtkSmartPointer<vtkDoubleArray>::New();
+	maskArray->SetNumberOfComponents(1);
+	maskArray->SetNumberOfTuples(m_io->GetVoronoiDiagram()->GetNumberOfPoints());
+	maskArray->SetName("Mask");
+	maskArray->FillComponent(0, 0);
+	vtkSmartPointer<vtkImplicitBoolean> compositeFunction = vtkSmartPointer<vtkImplicitBoolean>::New();
+	compositeFunction->AddFunction(tubeFunction);
+	compositeFunction->EvaluateFunction(m_io->GetVoronoiDiagram()->GetPoints()->GetData(), maskArray);
+
+	m_io->GetVoronoiDiagram()->GetPointData()->AddArray(maskArray);
+	m_io->GetVoronoiDiagram()->GetPointData()->SetActiveScalars("Mask");
+
+	vtkSmartPointer<vtkClipPolyData> clipperSmooth = vtkSmartPointer<vtkClipPolyData>::New();
+	clipperSmooth->SetValue(0);
+	clipperSmooth->SetInsideOut(true);
+	clipperSmooth->SetInputData(m_io->GetVoronoiDiagram());
+	clipperSmooth->Update();
+
+	m_io->SetVornoiDiagram(clipperSmooth->GetOutput());
+
+	// Reconstructing Surface from Voronoi Diagram
+	vtkNew<vtkvmtkPolyBallModeller> modeller;
+	modeller->SetInputData(clipperSmooth->GetOutput());
+	modeller->SetRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	modeller->UsePolyBallLineOff();
+	int polyBallImageSize[3] = { 90,90,90 };
+	modeller->SetSampleDimensions(polyBallImageSize);
+	modeller->Update();
+
+	vtkNew<vtkMarchingCubes> marchingCube;
+	marchingCube->SetInputData(modeller->GetOutput());
+	marchingCube->SetValue(0, 0.0);
+	marchingCube->Update();
 }
 
 void MainWindow::slotSurfaceCapping()
@@ -2970,7 +3172,7 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 	if (outputData == nullptr)
 		outputData = vtkSmartPointer<vtkPolyData>::New();
 
-	std::cout << "extract interpolation data from clipped voronoi diagram" << std::endl;
+	//std::cout << "extract interpolation data from clipped voronoi diagram" << std::endl;
 
 	vtkDataArray* tangentArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
 	vtkDataArray* parallelTransportNormalsArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetParallelTransportNormalsName().toStdString().c_str());
@@ -2979,9 +3181,9 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 	if (idx == -1)
 		idx = clippedCenterline->GetNumberOfPoints() - 1;
 
-	std::cout << "index: " << idx << std::endl;
-	std::cout << "direction: " << dir << std::endl;
-	std::cout << "length: " << len << std::endl;
+	//std::cout << "index: " << idx << std::endl;
+	//std::cout << "direction: " << dir << std::endl;
+	//std::cout << "length: " << len << std::endl;
 
 	if (tangentArray == nullptr || parallelTransportNormalsArray == nullptr || radiusArray == nullptr)
 		return;
@@ -3004,9 +3206,9 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 	double* point = clippedCenterline->GetPoint(idx);
 	double radius = radiusArray->GetTuple1(idx);
 
-	std::cout << "center: " << point[0] <<", " << point[1] << ", " << point[2] << std::endl;
-	std::cout << "radius: " << radius << std::endl;
-	std::cout << "tangent: " << tangent[0] << ", " << tangent[1] << ", " << tangent[2] << std::endl;
+	//std::cout << "center: " << point[0] <<", " << point[1] << ", " << point[2] << std::endl;
+	//std::cout << "radius: " << radius << std::endl;
+	//std::cout << "tangent: " << tangent[0] << ", " << tangent[1] << ", " << tangent[2] << std::endl;
 
 	// create cylinder function
 	vtkSmartPointer<vtkCylinder> cylinderFunction = vtkSmartPointer<vtkCylinder>::New();
@@ -3036,8 +3238,8 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 		}
 	}
 
-	std::cout << "plane1origin: " << plane1origin[0] << ", " << plane1origin[1] << ", " << plane1origin[2] << std::endl;
-	std::cout << "plane2origin: " << plane2origin[0] << ", " << plane2origin[1] << ", " << plane2origin[2] << std::endl;
+	//std::cout << "plane1origin: " << plane1origin[0] << ", " << plane1origin[1] << ", " << plane1origin[2] << std::endl;
+	//std::cout << "plane2origin: " << plane2origin[0] << ", " << plane2origin[1] << ", " << plane2origin[2] << std::endl;
 
 	planeFunction1->SetOrigin(plane1origin);
 	planeFunction1->SetNormal(tangent[0]*-1, tangent[1] * -1, tangent[2] * -1);
@@ -3048,7 +3250,7 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 	vtkSmartPointer<vtkDoubleArray> mask = vtkSmartPointer<vtkDoubleArray>::New();
 	mask->SetNumberOfComponents(1);
 	mask->SetNumberOfTuples(m_io->GetVoronoiDiagram()->GetNumberOfPoints());
-	mask->SetName("Mask2");
+	mask->SetName("Mask");
 	mask->FillComponent(0, 0);
 
 	// implicit clip function composed by cylinder, plane 1 and plane 2
@@ -3061,16 +3263,16 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 
 	outputData->DeepCopy(m_io->GetVoronoiDiagram());
 	outputData->GetPointData()->AddArray(mask);
-	outputData->GetPointData()->SetActiveScalars("Mask2");
+	outputData->GetPointData()->SetActiveScalars("Mask");
 
 	vtkSmartPointer<vtkClipPolyData> clipper = vtkSmartPointer<vtkClipPolyData>::New();
 	clipper->SetValue(1e-6);
 	clipper->SetInsideOut(true);
-	clipper->GenerateClippedOutputOn();
 	clipper->SetInputData(outputData);
 	clipper->Update();
 
 	outputData->DeepCopy(clipper->GetOutput());
+	outputData->GetPointData()->SetActiveScalars("Radius");
 }
 
 void MainWindow::readSurfaceFileComplete()
