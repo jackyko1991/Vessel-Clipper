@@ -1,3 +1,10 @@
-add_subdirectory(Branch)
-include_directories(${Branch_SOURCE_DIR})
-include_directories(${Branch_BINARY_DIR})
+list(APPEND PROJECT_LIBRARIES 
+	Branch
+	Measurements
+	)
+
+foreach(ONE ${PROJECT_LIBRARIES})
+	add_subdirectory(${ONE})
+	include_directories(${${ONE}_SOURCE_DIR})
+	include_directories(${${ONE}_BINARY_DIR})
+endforeach()

@@ -255,7 +255,7 @@ bool IO::ReadReconSurface()
 
 	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
 
-	if (m_voronoiFile.suffix() == "vtp" || m_voronoiFile.suffix() == "VTP")
+	if (m_reconstructedSurfaceFile.suffix() == "vtp" || m_reconstructedSurfaceFile.suffix() == "VTP")
 	{
 		vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
 		reader->SetFileName(m_reconstructedSurfaceFile.absoluteFilePath().toStdString().c_str());
@@ -272,7 +272,7 @@ bool IO::ReadReconSurface()
 			emit reconstructedSurfaceFileReadStatus(0);
 		}
 	}
-	else if (m_voronoiFile.suffix() == "stl" || m_voronoiFile.suffix() == "STL")
+	else if (m_reconstructedSurfaceFile.suffix() == "stl" || m_reconstructedSurfaceFile.suffix() == "STL")
 	{
 		vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
 		reader->SetFileName(m_reconstructedSurfaceFile.absoluteFilePath().toStdString().c_str());

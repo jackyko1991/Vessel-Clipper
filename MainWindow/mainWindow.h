@@ -79,6 +79,10 @@ public slots:
 	void slotReconInterpolate();
 	void slotResetRecon();
 	void slotReconstruct();
+	void slotSliderReconSurfaceOpacityChanged();
+	void slotSpinBoxReconSurfaceOpacityChanged();
+	void slotBrowseReconSurface();
+	void slotSaveReconSurface();
 
 	// domain
 	void slotSurfaceCapping();
@@ -121,6 +125,7 @@ private slots:
 	void readSurfaceFileComplete();
 	void readCenterlineFileComplete();
 	void readVoronoiFileComplete();
+	void readReconSurfaceComplete();
 
 private:
 	Ui::MainWindow *ui;
@@ -128,6 +133,7 @@ private:
 	void renderSurface();
 	void renderCenterline();
 	void renderVoronoi();
+	void renderReconSurface();
 	void renderFirstBifurcationPoint();
 	void renderCenterlineKeyPoints();
 	void updateCenterlineKeyPointsTable();

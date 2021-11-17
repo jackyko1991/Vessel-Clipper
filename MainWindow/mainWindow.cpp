@@ -142,7 +142,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
 	m_surfaceActor->GetProperty()->SetColor(1, 1, 1);
-	m_surfaceActor->GetProperty()->SetOpacity(0.25);
+	m_surfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxOpacity->value());
 
 	m_centerlineActor->SetMapper(m_centerlineMapper);
 	m_centerlineActor->GetProperty()->SetColor(1, 1, 1);
@@ -151,6 +151,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_distalNormalActor->SetMapper(m_distalNormalMapper);
 	m_proximalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
 	m_distalNormalActor->GetProperty()->SetColor(1, 1, 0.5);
+
+	m_reconSurfaceActor->SetMapper(m_reconSurfaceMapper);
+	m_reconSurfaceActor->GetProperty()->SetColor(1, 1, 1);
+	m_reconSurfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxReconSurfaceOpacity->value());
 
 	// voronoi diagram
 	vtkSmartPointer<vtkLookupTable> lut = vtkSmartPointer<vtkLookupTable>::New();
@@ -170,6 +174,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_renderer->AddActor(m_proximalNormalActor);
 	m_renderer->AddActor(m_distalNormalActor);
 	m_renderer->AddActor(m_vornoiActor);
+	m_renderer->AddActor(m_reconSurfaceActor);
 
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
@@ -238,6 +243,10 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
 	connect(ui->pushButtonSaveReconVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
 	connect(ui->pushButtonReconstruct, &QPushButton::clicked, this, &MainWindow::slotReconstruct);
+	connect(ui->horizontalSliderReconSurfaceOpacity, &QSlider::valueChanged, this, &MainWindow::slotSliderReconSurfaceOpacityChanged);
+	connect(ui->doubleSpinBoxReconSurfaceOpacity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxReconSurfaceOpacityChanged);
+	connect(ui->pushButtonLoadReconSurface, &QPushButton::clicked, this, &MainWindow::slotBrowseReconSurface);
+	connect(ui->pushButtonSaveReconSurface, &QPushButton::clicked, this, &MainWindow::slotSaveReconSurface);
 
 	// extend
 
@@ -269,13 +278,15 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	////ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -1345,9 +1356,6 @@ void MainWindow::slotReconInterpolate()
 			transformFilter->SetTransform(transform);
 			transformFilter->Update();
 
-			proximalPoints->GetPointData()->Print(std::cout);
-			transformFilter->GetOutput()->GetPointData()->Print(std::cout);
-
 			voronoiAppendFilter->AddInputData(transformFilter->GetOutput());
 		}
 
@@ -1467,6 +1475,7 @@ void MainWindow::slotReconstruct()
 
 	// perform smooth
 	// create implict function with spheres along clipped centerline
+	std::cout << "Computing smoothed radius"<< std::endl;
 	vtkSmartPointer<vtkArrayCalculator> cal = vtkSmartPointer<vtkArrayCalculator>::New();
 	cal->SetInputData(m_io->GetCenterline());
 	cal->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
@@ -1475,7 +1484,6 @@ void MainWindow::slotReconstruct()
 	cal->SetFunction(buffer);
 	cal->SetResultArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
 	cal->Update();
-	//std::cout << "smooth function: " << cal->GetFunction() << std::endl;
 
 	vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunction = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
 	tubeFunction->SetInput((vtkPolyData*)cal->GetOutput());
@@ -1488,6 +1496,7 @@ void MainWindow::slotReconstruct()
 	maskArray->FillComponent(0, 0);
 	vtkSmartPointer<vtkImplicitBoolean> compositeFunction = vtkSmartPointer<vtkImplicitBoolean>::New();
 	compositeFunction->AddFunction(tubeFunction);
+	std::cout << "Evaluating Voronoi diagram to smooth output" << std::endl;
 	compositeFunction->EvaluateFunction(m_io->GetVoronoiDiagram()->GetPoints()->GetData(), maskArray);
 
 	m_io->GetVoronoiDiagram()->GetPointData()->AddArray(maskArray);
@@ -1500,8 +1509,12 @@ void MainWindow::slotReconstruct()
 	clipperSmooth->Update();
 
 	m_io->SetVornoiDiagram(clipperSmooth->GetOutput());
+	this->renderVoronoi();
+
+	std::cout << "Smooth Voronoi diagram complete" << std::endl;
 
 	// Reconstructing Surface from Voronoi Diagram
+	std::cout << "Polyball modeling..." << std::endl;
 	vtkNew<vtkvmtkPolyBallModeller> modeller;
 	modeller->SetInputData(clipperSmooth->GetOutput());
 	modeller->SetRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
@@ -1510,10 +1523,73 @@ void MainWindow::slotReconstruct()
 	modeller->SetSampleDimensions(polyBallImageSize);
 	modeller->Update();
 
+	std::cout << "Performing marching cube..." << std::endl;
+
 	vtkNew<vtkMarchingCubes> marchingCube;
 	marchingCube->SetInputData(modeller->GetOutput());
 	marchingCube->SetValue(0, 0.0);
 	marchingCube->Update();
+
+	std::cout << "Reconstruct surface complete" << std::endl;
+
+	m_io->SetReconstructedSurface(marchingCube->GetOutput());
+	this->renderReconSurface();
+}
+
+void MainWindow::slotSliderReconSurfaceOpacityChanged()
+{
+	double opacity = ui->horizontalSliderReconSurfaceOpacity->value()*1.0 / 100.;
+	ui->doubleSpinBoxReconSurfaceOpacity->setValue(opacity);
+	m_reconSurfaceActor->GetProperty()->SetOpacity(opacity);
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotSpinBoxReconSurfaceOpacityChanged()
+{
+	ui->horizontalSliderReconSurfaceOpacity->setValue(ui->doubleSpinBoxReconSurfaceOpacity->value() * 100);
+	m_reconSurfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxReconSurfaceOpacity->value());
+
+	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotBrowseReconSurface()
+{
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open Reconstructed Surface"), ui->lineEditReconSurface->text(), tr("Reconstructed Surface Files (*.vtk *.vtp *.stl)"));
+
+	if (fileName.isNull())
+		return;
+
+	ui->lineEditReconSurface->setText(fileName);
+
+	m_statusLabel->setText("Loading reconstructed surface file...");
+	m_statusProgressBar->setValue(51);
+
+	this->enableUI(false);
+	this->m_io->SetReconSurfacePath(fileName);
+
+	// Instantiate the watcher to unlock
+	m_ioWatcher = new QFutureWatcher<bool>;
+	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readReconSurfaceComplete()));
+
+	// use QtConcurrent to run the read file on a new thread;
+	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadReconSurface);
+	m_ioWatcher->setFuture(future);
+}
+
+void MainWindow::slotSaveReconSurface()
+{
+	if (m_io->GetReconstructedSurface()->GetNumberOfPoints() == 0)
+		return;
+
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Reconstructed Surface File"), ui->lineEditReconSurface->text(), tr("Reconstructed Surface Files (*.vtk *.vtp *.stl)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->WriteReconSurface(fileName);
 }
 
 void MainWindow::slotSurfaceCapping()
@@ -1568,22 +1644,22 @@ void MainWindow::slotSurfaceCapping()
 		geomFilter2->SetInputConnection(thresholdFilter->GetOutputPort());
 		geomFilter2->Update();
 
-		// triangulate the boundary caps
-		vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
-		triangleFilter->SetInputData(geomFilter2->GetOutput());
-		triangleFilter->Update();
+		//// triangulate the boundary caps
+		//vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+		//triangleFilter->SetInputData(geomFilter2->GetOutput());
+		//triangleFilter->Update();
 
-		// ui blocking, need to fix
-		// remesh to equal space, this may have small gap between surface and the boundary caps, need to fix
-		vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
-		surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
-		surfaceRemeshing->SetMinArea(1e-3);
-		surfaceRemeshing->SetMaxArea(1e-2);
-		surfaceRemeshing->SetNumberOfIterations(10);
-		surfaceRemeshing->Update();
+		//// ui blocking, need to fix
+		//// remesh to equal space, this may have small gap between surface and the boundary caps, need to fix
+		//vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing> surfaceRemeshing = vtkSmartPointer<vtkvmtkPolyDataSurfaceRemeshing>::New();
+		//surfaceRemeshing->SetInputData(triangleFilter->GetOutput());
+		//surfaceRemeshing->SetMinArea(1e-3);
+		//surfaceRemeshing->SetMaxArea(1e-2);
+		//surfaceRemeshing->SetNumberOfIterations(10);
+		//surfaceRemeshing->Update();
 
 		vtkSmartPointer<vtkPolyData> cap_poly = vtkSmartPointer<vtkPolyData>::New();
-		cap_poly->DeepCopy(surfaceRemeshing->GetOutput());
+		cap_poly->DeepCopy(geomFilter2->GetOutput());
 
 		// inject into io database
 		BoundaryCap bc;
@@ -2393,6 +2469,20 @@ void MainWindow::renderVoronoi()
 	ui->qvtkWidget->update();
 }
 
+void MainWindow::renderReconSurface()
+{
+	if (!(m_io->GetReconstructedSurface()->GetNumberOfCells() > 0 ||
+		m_io->GetReconstructedSurface()->GetNumberOfPoints() > 0))
+	{
+		return;
+	}
+
+	m_reconSurfaceMapper->SetInputData(m_io->GetReconstructedSurface());
+	m_reconSurfaceMapper->SetScalarVisibility(false);
+
+	ui->qvtkWidget->update();
+}
+
 void MainWindow::renderFirstBifurcationPoint()
 {
 	QVector<double> point = m_io->GetCenterlineFirstBifurcationPoint();
@@ -3161,7 +3251,7 @@ void MainWindow::updateCenterlinesInfoWidget()
 
 void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clippedCenterline, vtkPolyData* outputData, int idx, bool dir, float len)
 {
-	std::cout << "idx: " << idx << std::endl;
+	//std::cout << "idx: " << idx << std::endl;
 
 	if (m_io->GetVoronoiDiagram()->GetNumberOfPoints() == 0)
 	{
@@ -3345,6 +3435,29 @@ void MainWindow::readVoronoiFileComplete()
 	else
 	{
 		m_statusLabel->setText("Loading Voronoi file fail");
+	}
+
+	m_statusProgressBar->setValue(100);
+
+	// unlock ui
+	this->enableUI(true);
+
+	delete m_ioWatcher;
+}
+
+void MainWindow::readReconSurfaceComplete()
+{
+	if (!m_ioWatcher->future().result())
+	{
+		m_statusLabel->setText("Loading reconstructed surface file complete");
+		this->renderReconSurface();
+
+		m_renderer->ResetCamera();
+		ui->qvtkWidget->update();
+	}
+	else
+	{
+		m_statusLabel->setText("Loading reconstructed surface file fail");
 	}
 
 	m_statusProgressBar->setValue(100);
