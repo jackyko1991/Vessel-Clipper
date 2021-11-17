@@ -1,16 +1,16 @@
-#include "branch_operation.h"
+#include "measurements.h"
 
-#include "ui_branch_operation.h"
+#include "ui_measurements.h"
 
-BranchOperation::BranchOperation(QWidget *parent) :
+Measurements::Measurements(QWidget *parent) :
 	QWidget(parent),
-	ui(new Ui::BranchOperation)
+	ui(new Ui::Measurements)
 {
 	ui->setupUi(this);
 
 }
 
-BranchOperation::~BranchOperation()
+Measurements::~Measurements()
 {
 
 }

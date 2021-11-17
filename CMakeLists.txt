@@ -98,7 +98,7 @@ add_executable(
 	${WINDOWS_RESOURCE_PATH}
 )
 
-target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES} ${VTK_LIBRARIES} ${VMTK_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES} ${UTILS_LIBRARIES} ${VTK_LIBRARIES} ${VMTK_LIBRARIES})
 
 qt5_use_modules(${PROJECT_NAME} Widgets)
 

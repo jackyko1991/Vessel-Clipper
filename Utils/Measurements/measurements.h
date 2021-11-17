@@ -1,27 +1,27 @@
-#ifndef __BRANCHOPERATION_H__
-#define __BRANCHOPERATION_H__
+#ifndef __MEASUREMENTS_H__
+#define __MEASUREMENTS_H__
 
 // qt
 #include <QWidget>
 
 namespace Ui {
-	class BranchOperation;
+	class Measurements;
 }
 
-class BranchOperation : public QWidget
+class Measurements : public QWidget
 {
 	Q_OBJECT
 
 public:
-	BranchOperation(QWidget* parent = nullptr);
-	~BranchOperation();
+	Measurements(QWidget* parent = nullptr);
+	~Measurements();
 
 public slots:
 
 private slots :
 
 private:
-	Ui::BranchOperation *ui;
+	Ui::Measurements *ui;
 };
 
 #endif
