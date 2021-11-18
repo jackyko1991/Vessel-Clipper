@@ -136,6 +136,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// utils
 	m_branchOperation = new BranchOperation();
 	m_measurements = new Measurements();
+	m_measurements->SetDataIo(m_io);
 
 	// settings
 	m_preferences = new Preferences();
