@@ -1655,7 +1655,7 @@ Red Sphere: Centerline Target</string>
     <property name="title">
      <string>Utils</string>
     </property>
-    <addaction name="actionMeasurement"/>
+    <addaction name="actionMeasurements"/>
     <addaction name="actionBranch"/>
     <addaction name="actionSmooth"/>
     <addaction name="actionResample"/>
@@ -1680,7 +1680,7 @@ Red Sphere: Centerline Target</string>
    <addaction name="menuUtils"/>
    <addaction name="menuViewer"/>
   </widget>
-  <action name="actionMeasurement">
+  <action name="actionMeasurements">
    <property name="text">
     <string>Measurement</string>
    </property>

@@ -27,6 +27,7 @@ namespace Ui {
 class QProgressBar;
 class BranchOperation;
 class Preferences;
+class Measurements;
 
 class MainWindow : public QMainWindow
 {
@@ -120,6 +121,7 @@ public slots:
 	void slotActionBranch();
 	void slotActionPreferences();
 	void slotCenterlineConfigure();
+	void slotActionMeasurements();
 
 private slots:
 	void readSurfaceFileComplete();
@@ -218,6 +220,7 @@ private:
 
 	// utils
 	BranchOperation* m_branchOperation;
+	Measurements* m_measurements;
 
 	// settings
 	Preferences* m_preferences;

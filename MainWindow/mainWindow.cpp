@@ -78,6 +78,7 @@
 // widgets
 #include "branch_operation.h"
 #include "preferences.h"
+#include "measurements.h"
 
 MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 {
@@ -134,6 +135,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 	// utils
 	m_branchOperation = new BranchOperation();
+	m_measurements = new Measurements();
 
 	// settings
 	m_preferences = new Preferences();
@@ -267,6 +269,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonCenterlineConfigure, &QPushButton::clicked, this, &MainWindow::slotCenterlineConfigure);
 	connect(ui->actionLoad_Surface, &QAction::triggered, this, &MainWindow::slotBrowseSurface);
 	connect(ui->actionLoad_Centerline, &QAction::triggered, this, &MainWindow::slotBrowseCenterline);
+	connect(ui->actionMeasurements, &QAction::triggered, this, &MainWindow::slotActionMeasurements);
 
 	// set stenosis and normal points
 	connect(ui->centerlinesInfoWidget, SIGNAL(signalSetStenosis()), this, SLOT(slotSetStenosisPoint()));
@@ -2411,6 +2414,13 @@ void MainWindow::slotCenterlineConfigure()
 	m_preferences->show();
 	m_preferences->raise();
 	m_preferences->activateWindow();
+}
+
+void MainWindow::slotActionMeasurements()
+{
+	m_measurements->show();
+	m_measurements->raise();
+	m_measurements->activateWindow();
 }
 
 void MainWindow::slotExit()
