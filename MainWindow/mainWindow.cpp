@@ -62,6 +62,8 @@
 #include "vtkArrayCalculator.h"
 #include "vtkMarchingCubes.h"
 
+# include "vtkXMLImageDataWriter.h"
+
 // vmtk
 #include "vtkvmtkPolyDataCenterlines.h"
 #include "vtkvmtkCenterlineAttributesFilter.h"
@@ -282,15 +284,15 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	// shortcut, remove for release
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	////ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	//ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -1519,18 +1521,23 @@ void MainWindow::slotReconstruct()
 
 	// Reconstructing Surface from Voronoi Diagram
 	std::cout << "Polyball modeling..." << std::endl;
-	vtkNew<vtkvmtkPolyBallModeller> modeller;
+	std::cout << "Radius array name: " << m_preferences->GetRadiusArrayName().toStdString() << std::endl;
+	vtkSmartPointer<vtkvmtkPolyBallModeller> modeller = vtkSmartPointer<vtkvmtkPolyBallModeller>::New();
 	modeller->SetInputData(clipperSmooth->GetOutput());
 	modeller->SetRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	//modeller->SetRadiusArrayName("Radius");
 	modeller->UsePolyBallLineOff();
 	int polyBallImageSize[3] = { 90,90,90 };
 	modeller->SetSampleDimensions(polyBallImageSize);
 	modeller->Update();
 
+	vtkNew<vtkImageData> polyballImage;
+	polyballImage->DeepCopy(modeller->GetOutput());
+
 	std::cout << "Performing marching cube..." << std::endl;
 
-	vtkNew<vtkMarchingCubes> marchingCube;
-	marchingCube->SetInputData(modeller->GetOutput());
+	vtkSmartPointer<vtkMarchingCubes> marchingCube = vtkSmartPointer<vtkMarchingCubes>::New();
+	marchingCube->SetInputData(polyballImage);
 	marchingCube->SetValue(0, 0.0);
 	marchingCube->Update();
 
