@@ -37,7 +37,6 @@ find_package(Qt5 COMPONENTS Core Widgets Concurrent PrintSupport REQUIRED)
 include_directories(${Core_SOURCE_DIR})
 include_directories(${CenterlinesInfoWidget_SOURCE_DIR})
 include_directories(${Branch_SOURCE_DIR})
-include_directories(${Measurements_SOURCE_DIR})
 
 # Finding needed source files.
 file(
@@ -93,7 +92,7 @@ target_link_libraries(
 	Core
 	CenterlinesInfoWidget
 	Branch
-	Measurements
+	# Measurements
 	${VTK_LIBRARIES}
 	${VMTK_LIBRARIES}
 )

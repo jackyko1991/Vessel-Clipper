@@ -144,6 +144,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_measurements = new Measurements();
 	m_measurements->SetDataIo(m_io);
 	m_measurements->SetPreference(m_preferences);
+	m_measurements->SetCenterlinesInfoWidget(ui->centerlinesInfoWidget);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -299,9 +300,6 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 MainWindow::~MainWindow()
 {
-	m_preferences->close();
-	m_measurements->close();
-
 	delete m_io;
 }
 
