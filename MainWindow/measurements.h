@@ -9,6 +9,7 @@ namespace Ui {
 }
 
 class IO;
+class Preferences;
 
 class Measurements : public QWidget
 {
@@ -17,17 +18,24 @@ class Measurements : public QWidget
 public:
 	Measurements(QWidget* parent = nullptr);
 	~Measurements();
+	void SetPreference(Preferences*);
 	void SetDataIo(IO*);
 
 public slots:
 	void slotUpdate();
 	void slotClose();
+	void slotCenterlineConfigUpdate();
+	void slotReconAddAll();
+	void slotReconAddCurrent();
+	void slotReconRemoveAll();
+	void slotReconRemoveCurrent();
 
 private slots :
 
 private:
 	Ui::Measurements *ui;
 	IO* m_io = nullptr;
+	Preferences* m_preferences = nullptr;
 };
 
 #endif

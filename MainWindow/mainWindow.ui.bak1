@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1233</width>
-    <height>1030</height>
+    <height>1017</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -817,7 +817,7 @@
               <property name="geometry">
                <rect>
                 <x>0</x>
-                <y>-91</y>
+                <y>-104</y>
                 <width>259</width>
                 <height>483</height>
                </rect>
@@ -1073,7 +1073,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="lineEditReconSurface"/>
+                  <widget class="QLineEdit" name="lineEditVoronoi_3"/>
                  </item>
                  <item>
                   <widget class="QPushButton" name="pushButtonLoadReconSurface">
@@ -1704,7 +1704,7 @@ Red Sphere: Centerline Target</string>
     <property name="title">
      <string>Utils</string>
     </property>
-    <addaction name="actionMeasurements"/>
+    <addaction name="actionMeasurement"/>
     <addaction name="actionBranch"/>
     <addaction name="actionSmooth"/>
     <addaction name="actionResample"/>
@@ -1729,9 +1729,9 @@ Red Sphere: Centerline Target</string>
    <addaction name="menuUtils"/>
    <addaction name="menuViewer"/>
   </widget>
-  <action name="actionMeasurements">
+  <action name="actionMeasurement">
    <property name="text">
-    <string>Measurements</string>
+    <string>Measurement</string>
    </property>
   </action>
   <action name="actionReconstruction">

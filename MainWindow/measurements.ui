@@ -7,32 +7,152 @@
     <x>0</x>
     <y>0</y>
     <width>611</width>
-    <height>611</height>
+    <height>705</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Measurements</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_11">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_62">
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
      <item>
-      <widget class="QLabel" name="label_60">
+      <layout class="QHBoxLayout" name="horizontalLayout_64">
+       <item>
+        <widget class="QLabel" name="label_62">
+         <property name="maximumSize">
+          <size>
+           <width>160</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>CenterlineIds Array:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelCenterlineIdsArray">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_62">
+       <item>
+        <widget class="QLabel" name="label_60">
+         <property name="maximumSize">
+          <size>
+           <width>160</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Radius Array:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelRadiusArray">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_21">
+     <item>
+      <widget class="QListWidget" name="listWidgetCenterlineIdsPending">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="maximumSize">
         <size>
-         <width>80</width>
+         <width>999</width>
          <height>16777215</height>
         </size>
-       </property>
-       <property name="text">
-        <string>Radius Array:</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_61">
-       <property name="text">
-        <string/>
+      <layout class="QVBoxLayout" name="verticalLayout_8">
+       <item>
+        <widget class="QPushButton" name="pushButtonAddAllRecon">
+         <property name="maximumSize">
+          <size>
+           <width>60</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Add All</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButtonAddRecon">
+         <property name="maximumSize">
+          <size>
+           <width>60</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>-&gt;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButtonRemoveRecon">
+         <property name="maximumSize">
+          <size>
+           <width>60</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>&lt;-</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButtonRemoveAllRecon">
+         <property name="maximumSize">
+          <size>
+           <width>60</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Remove all</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QListWidget" name="listWidgetCenterlineIdsRecon">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>999</width>
+         <height>16777215</height>
+        </size>
        </property>
       </widget>
      </item>

@@ -135,14 +135,15 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	ui->tableWidgetCenterlineKeyPoints->verticalHeader()->setVisible(false);
 	ui->tableWidgetCenterlineKeyPoints->setSelectionBehavior(QAbstractItemView::SelectRows);
 
+	// settings
+	m_preferences = new Preferences();
+	m_preferences->SetIO(m_io);
+
 	// utils
 	m_branchOperation = new BranchOperation();
 	m_measurements = new Measurements();
 	m_measurements->SetDataIo(m_io);
-
-	// settings
-	m_preferences = new Preferences();
-	m_preferences->SetIO(m_io);
+	m_measurements->SetPreference(m_preferences);
 
 	// actors
 	m_surfaceActor->SetMapper(m_surfaceMapper);
@@ -224,6 +225,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonComputeCenterline, &QPushButton::clicked, this, &MainWindow::slotComputeCenterline);
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
 	connect(m_preferences, SIGNAL(signalComboBoxesUpdated()), this, SLOT(slotCenterlineConfigUpdate()));
+	connect(m_preferences, SIGNAL(signalComboBoxesUpdated()), m_measurements, SLOT(slotCenterlineConfigUpdate()));
 
 	// clipping
 	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
@@ -297,6 +299,9 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 MainWindow::~MainWindow()
 {
+	m_preferences->close();
+	m_measurements->close();
+
 	delete m_io;
 }
 
