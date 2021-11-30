@@ -21,9 +21,11 @@
 #include "vtkDoubleArray.h"
 #include "vtkArrayCalculator.h"
 #include "vtkCleanPolyData.h"
+#include "vtkMassProperties.h"
 
 // vmtk
 #include "vtkvmtkPolyBallLine.h"
+#include "vtkvmtkCapPolyData.h"
 
 #include "io.h"
 #include "preferences.h"
@@ -247,7 +249,7 @@ void Measurements::slotUpdate()
 		clipper2->SetInputData(clipper1->GetOutput());
 		clipper2->Update();
 
-		clipper2->GetOutput()->Print(std::cout);
+		//clipper2->GetOutput()->Print(std::cout);
 
 		// check if single centerline is close to distal point
 		double epsilon = 1e0;
@@ -272,7 +274,14 @@ void Measurements::slotUpdate()
 	}
 
 	appendFilter->Update();
-	appendFilter->GetOutput()->Print(std::cout);
+	//appendFilter->GetOutput()->Print(std::cout);
+
+	vtkDataArray* abscissasClipped = appendFilter->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	if (abscissasClipped != nullptr && abscissasClipped->GetNumberOfTuples() > 0)
+	{
+		double ntnLength = abscissasClipped->GetRange()[1] - abscissasClipped->GetRange()[0];
+		ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
+	}
 
 	std::cout << "Computing enlarged radius" << std::endl;
 	vtkSmartPointer<vtkArrayCalculator> cal = vtkSmartPointer<vtkArrayCalculator>::New();
@@ -318,7 +327,7 @@ void Measurements::slotUpdate()
 
 		vtkPolyData* singleCenterline = geomFilter->GetOutput();
 
-		std::cout << "centerlineid: " << i << std::endl;
+		//std::cout << "centerlineid: " << i << std::endl;
 		singleCenterline->Print(std::cout);
 
 		singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
@@ -404,35 +413,69 @@ void Measurements::slotUpdate()
 	//geomFilter->SetInputData(clipperV->GetOutput());
 	//geomFilter->Update();
 
-	m_io->SetSurface(cleanerS->GetOutput());
+	vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
+	capperSurface->SetInputData(cleanerS->GetOutput());
+	capperSurface->Update();
+
+	vtkSmartPointer<vtkMassProperties> massSurface = vtkSmartPointer<vtkMassProperties>::New();
+	massSurface->SetInputData(capperSurface->GetOutput());
+	massSurface->Update();
+	ui->labelLesionLumenalVolumeNTN->setText(QString::number(massSurface->GetVolume(), 'f', 3));
+
 	vtkPolyData* clippedSurface = cleanerS->GetOutput();
+	m_io->SetSurface(clippedSurface);
 
 	// reconstructed surface
-	if (m_io->GetReconstructedSurface()->GetNumberOfPoints() == 0)
-		return;
+	if (m_io->GetReconstructedSurface()->GetNumberOfPoints() != 0)
+	{
+		compositeFunction->EvaluateFunction(m_io->GetReconstructedSurface()->GetPoints()->GetData(), maskArray);
 
-	compositeFunction->EvaluateFunction(m_io->GetReconstructedSurface()->GetPoints()->GetData(), maskArray);
+		m_io->GetReconstructedSurface()->GetPointData()->AddArray(maskArray);
+		m_io->GetReconstructedSurface()->GetPointData()->SetActiveScalars("Mask");
 
-	m_io->GetReconstructedSurface()->GetPointData()->AddArray(maskArray);
-	m_io->GetReconstructedSurface()->GetPointData()->SetActiveScalars("Mask");
+		vtkSmartPointer<vtkClipPolyData> clipperR = vtkSmartPointer<vtkClipPolyData>::New();
+		clipperR->SetValue(0);
+		clipperR->SetInsideOut(true);
+		clipperR->GenerateClippedOutputOff();
+		clipperR->SetInputData(m_io->GetReconstructedSurface());
+		clipperR->Update();
 
-	vtkSmartPointer<vtkClipPolyData> clipperR = vtkSmartPointer<vtkClipPolyData>::New();
-	clipperR->SetValue(0);
-	clipperR->SetInsideOut(true);
-	clipperR->GenerateClippedOutputOff();
-	clipperR->SetInputData(m_io->GetReconstructedSurface());
-	clipperR->Update();
+		vtkSmartPointer<vtkCleanPolyData> cleanerR = vtkSmartPointer<vtkCleanPolyData>::New();
+		cleanerR->SetInputData(clipperR->GetOutput());
+		cleanerR->Update();
 
-	vtkSmartPointer<vtkCleanPolyData> cleanerR = vtkSmartPointer<vtkCleanPolyData>::New();
-	cleanerR->SetInputData(clipperR->GetOutput());
-	cleanerR->Update();
+		//vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+		//geomFilter->SetInputData(clipperV->GetOutput());
+		//geomFilter->Update();
 
-	//vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-	//geomFilter->SetInputData(clipperV->GetOutput());
-	//geomFilter->Update();
+		vtkSmartPointer<vtkvmtkCapPolyData> capperRecon = vtkSmartPointer<vtkvmtkCapPolyData>::New();
+		capperRecon->SetInputData(cleanerR->GetOutput());
+		capperRecon->Update();
 
-	m_io->SetReconstructedSurface(cleanerR->GetOutput());
-	vtkPolyData* clippedReconSurface = cleanerR->GetOutput();
+		vtkSmartPointer<vtkMassProperties> massRecon = vtkSmartPointer<vtkMassProperties>::New();
+		massRecon->SetInputData(capperRecon->GetOutput());
+		massRecon->Update();
+		ui->labelReconLumenalVolumeNTN->setText(QString::number(massRecon->GetVolume(), 'f', 3));
+
+		double plaqueVol = massRecon->GetVolume() - massSurface->GetVolume();
+		double volRatio = plaqueVol / massRecon->GetVolume()*100.0;
+		ui->labelLumenalVolDeltaNTN->setText(QString::number(plaqueVol, 'f', 3));
+		ui->labelVolumeRatioNTN->setText(QString::number(volRatio, 'f', 3));
+
+		if (abscissasClipped != nullptr && abscissasClipped->GetNumberOfTuples() > 0)
+		{
+			double ntnLength = abscissasClipped->GetRange()[1] - abscissasClipped->GetRange()[0];
+			double volRatioPerUnitLength = volRatio / ntnLength;
+			double adjVolRatio = volRatio*ntnLength;
+			ui->labelVolumeRatioPerUnitLengthNTN->setText(QString::number(volRatioPerUnitLength, 'f', 3));
+			ui->labelAdjustedVolumeRatioNTN->setText(QString::number(adjVolRatio, 'f', 3));
+		}
+
+		vtkPolyData* clippedReconSurface = capperRecon->GetOutput();
+		m_io->SetReconstructedSurface(cleanerR->GetOutput());
+	}
+
+	// FWHM section
 }
 
 //void Measurements::slotReconAddAll()
