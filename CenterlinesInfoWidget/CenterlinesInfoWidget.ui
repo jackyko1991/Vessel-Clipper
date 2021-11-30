@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
     <widget class="QCustomPlot" name="customPlotCenterlines" native="true">
      <property name="sizePolicy">
@@ -191,7 +191,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_8">
+    <layout class="QHBoxLayout" name="horizontalLayout_10">
      <item>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
@@ -214,6 +214,13 @@
           <widget class="QPushButton" name="pushButtonAutoLocateDistal">
            <property name="text">
             <string>Auto Locate Distal Normal</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonSaveCenterlineFeatures">
+           <property name="text">
+            <string>Save Centerline Features</string>
            </property>
           </widget>
          </item>
@@ -242,45 +249,59 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonLoadCenterlineFeatures">
+           <property name="text">
+            <string>Load Centerline Features</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="gridLayout">
-       <item row="0" column="0">
-        <widget class="QCheckBox" name="checkBoxRaw">
-         <property name="text">
-          <string>Raw</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_9">
+         <item>
+          <widget class="QCheckBox" name="checkBoxRaw">
+           <property name="text">
+            <string>Raw</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxDerivative1">
+           <property name="text">
+            <string>1st Derivative</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxDerivative2">
+           <property name="text">
+            <string>2nd Derivative</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxRenderNormalPlanes">
+           <property name="text">
+            <string>Render Normal Planes</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
-       <item row="1" column="0" colspan="2">
-        <widget class="QCheckBox" name="checkBoxRenderNormalPlanes">
-         <property name="text">
-          <string>Render Normal Planes</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QCheckBox" name="checkBoxDerivative1">
-         <property name="text">
-          <string>1st Derivative</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QCheckBox" name="checkBoxDerivative2">
-         <property name="text">
-          <string>2nd Derivative</string>
-         </property>
-        </widget>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_8"/>
        </item>
       </layout>
      </item>

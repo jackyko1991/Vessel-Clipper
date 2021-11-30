@@ -15,6 +15,12 @@
 #include "vtkThreshold.h"
 #include "vtkGeometryFilter.h"
 #include "vtkUnstructuredGrid.h"
+#include "vtkImplicitBoolean.h"
+#include "vtkSphere.h"
+#include "vtkPlane.h"
+#include "vtkDoubleArray.h"
+#include "vtkArrayCalculator.h"
+#include "vtkCleanPolyData.h"
 
 // vmtk
 #include "vtkvmtkPolyBallLine.h"
@@ -133,9 +139,11 @@ void Measurements::slotUpdate()
 	std::cout << "distal point: " << distalPt[0] << ", " << distalPt[1] << ", " << distalPt[2] << std::endl;
 	std::cout << "stenosis point: " << stenosisPt[0] << ", " << stenosisPt[1] << ", " << stenosisPt[2] << std::endl;
 
-	if ((proximalPt[0] == 0 && proximalPt[1] == 0 && proximalPt[2] == 0) || 
-		(distalPt[0] == 0 && distalPt[1] == 0 && distalPt[2] == 0) ||
-		(stenosisPt[0] == 0 && stenosisPt[1] == 0 && stenosisPt[2] == 0))
+	if (
+		(proximalPt[0] == 0 && proximalPt[1] == 0 && proximalPt[2] == 0) || 
+		(distalPt[0] == 0 && distalPt[1] == 0 && distalPt[2] == 0)
+		//(stenosisPt[0] == 0 && stenosisPt[1] == 0 && stenosisPt[2] == 0)
+		)
 	{
 		QMessageBox msgBox;
 		msgBox.setText("Invalid feature points");
@@ -145,7 +153,7 @@ void Measurements::slotUpdate()
 
 	int proximalId = locator->FindClosestPoint(proximalPt);
 	int distalId = locator->FindClosestPoint(distalPt);
-	int stenosisId = locator->FindClosestPoint(stenosisPt);
+	//int stenosisId = locator->FindClosestPoint(stenosisPt);
 
 	// threshold according to abscissas
 	vtkDataArray* abscissas = m_io->GetCenterline()->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str());
@@ -162,6 +170,8 @@ void Measurements::slotUpdate()
 		abscissas->GetTuple(proximalId)[0],
 		abscissas->GetTuple(distalId)[0]
 	};
+
+	std::cout << "Threshold bound: [" << threshold_bound[0] << "," << threshold_bound[1] << "]"<<std::endl;
 
 	vtkDataArray* centerlineIds = centerline->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
 	if (centerlineIds == nullptr)
@@ -192,8 +202,12 @@ void Measurements::slotUpdate()
 
 	vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
 
+	std::cout << "centerlineids range: [" << centerlineIds->GetRange()[0] << "," << centerlineIds->GetRange()[1] << "]" << std::endl;
+
 	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
 	{
+		std::cout << "centerlineid: " << i << std::endl;
+
 		// threshold to get independent centerline
 		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
 		threshold->ThresholdBetween(i, i);
@@ -201,203 +215,224 @@ void Measurements::slotUpdate()
 		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
 		threshold->Update();
 
+		//std::cout << "threshold centerline" << std::endl;
+		//threshold->GetOutput()->Print(std::cout);
+
 		// convert threshold output to vtkpolydata
 		vtkSmartPointer<vtkGeometryFilter> geometryFilter = vtkSmartPointer<vtkGeometryFilter>::New();
 		geometryFilter->SetInputData(threshold->GetOutput());
 		geometryFilter->Update();
 
-		if (threshold->GetOutput()->GetNumberOfPoints() == 0)
+		//std::cout << "threshold centerline with geometry" << std::endl;
+		//geometryFilter->GetOutput()->Print(std::cout);
+
+		if (geometryFilter->GetOutput()->GetNumberOfPoints() == 0)
 			continue;
 
-		vtkSmartPointer<vtkPolyData> singleCenterline = geometryFilter->GetOutput();
+		vtkPolyData* singleCenterline = geometryFilter->GetOutput();
 		singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
-
-		// check if single centerline is close to distal point
-		double epsilon = 1e-6;
-		double distalPointDistance = sqrt(vtkMath::Distance2BetweenPoints(singleCenterline->GetPoint(singleCenterline->GetNumberOfPoints()-1),distalPt));
-		if (distalPointDistance > 1e-6)
-			continue;
 
 		// compute section to clip
 		vtkSmartPointer<vtkClipPolyData> clipper1 = vtkSmartPointer<vtkClipPolyData>::New();
 		clipper1->SetValue(threshold_bound[0]);
-		clipper1->SetInsideOut(true);
-		clipper1->GenerateClippedOutputOn();
+		clipper1->SetInsideOut(false);
+		clipper1->GenerateClippedOutputOff();
 		clipper1->SetInputData(singleCenterline);
 		clipper1->Update();
 
 		vtkSmartPointer<vtkClipPolyData> clipper2 = vtkSmartPointer<vtkClipPolyData>::New();
 		clipper2->SetValue(threshold_bound[1]);
 		clipper2->SetInsideOut(true);
-		clipper2->GenerateClippedOutputOn();
-		clipper2->SetInputData(singleCenterline);
+		clipper2->GenerateClippedOutputOff();
+		clipper2->SetInputData(clipper1->GetOutput());
 		clipper2->Update();
+
+		clipper2->GetOutput()->Print(std::cout);
+
+		// check if single centerline is close to distal point
+		double epsilon = 1e0;
+		double distalPointDistance = sqrt(vtkMath::Distance2BetweenPoints(clipper2->GetOutput()->GetPoint(clipper2->GetOutput()->GetNumberOfPoints() - 1), distalPt));
+
+		std::cout << "last point: " <<
+			clipper2->GetOutput()->GetPoint(clipper2->GetOutput()->GetNumberOfPoints() - 1)[0] << ", " <<
+			clipper2->GetOutput()->GetPoint(clipper2->GetOutput()->GetNumberOfPoints() - 1)[1] << ", " <<
+			clipper2->GetOutput()->GetPoint(clipper2->GetOutput()->GetNumberOfPoints() - 1)[2] << std::endl;
+
+		std::cout << "distal point: " <<
+			distalPt[0] << ", " <<
+			distalPt[1] << ", " <<
+			distalPt[2] << std::endl;
+
+		std::cout << "distance: " << distalPointDistance << std::endl;
+
+		if (distalPointDistance > epsilon)
+			continue;
 
 		appendFilter->AddInputData(clipper2->GetOutput());
 	}
 
 	appendFilter->Update();
+	appendFilter->GetOutput()->Print(std::cout);
+
+	std::cout << "Computing enlarged radius" << std::endl;
+	vtkSmartPointer<vtkArrayCalculator> cal = vtkSmartPointer<vtkArrayCalculator>::New();
+	cal->SetInputData(appendFilter->GetOutput());
+	cal->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	char buffer[999];
+	sprintf(buffer, "%s * %f", m_preferences->GetRadiusArrayName().toStdString(), 1.5);
+	cal->SetFunction(buffer);
+	cal->SetResultArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	cal->Update();
+
+	std::cout << "Computing enlarged radius complete" << std::endl;
+	vtkPolyData* clippedCenterilne = (vtkPolyData*)cal->GetOutput();
 
 	// ======================== clip surface  ========================
-	//// get the new centerlineids 
-	//centerlineIds = centerline->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
-	//if (centerlineIds == nullptr)
-	//{
-	//	m_statusLabel->setText("Invalid centerlineids array");
-	//	m_statusProgressBar->setValue(100);
-
-	//	this->renderCenterline();
-	//	this->updateCenterlineDataTable();
-	//	this->updateCenterlinesInfoWidget();
-	//	return;
-	//}
-
 	// create implict function with spheres along clipped centerline
 	vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunction = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
-	tubeFunction->SetInput(appendFilter->GetOutput());
+	tubeFunction->SetInput((vtkPolyData*)cal->GetOutput());
 	tubeFunction->SetPolyBallRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
 
-	//vtkNew<vtkImplicitBoolean> endSpheresFunction;
-	//endSpheresFunction->SetOperationTypeToUnion();
+	vtkNew<vtkImplicitBoolean> endSpheresFunction;
+	endSpheresFunction->SetOperationTypeToUnion();
 
-	//for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
-	//{
-	//	// threshold to get independent centerline
-	//	vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
-	//	threshold->ThresholdBetween(i, i);
-	//	threshold->SetInputData(m_io->GetCenterline());
-	//	threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
-	//	threshold->Update();
+	vtkPolyData* centerlineEnlargedRadius = (vtkPolyData*)cal->GetOutput();
 
-	//	if (threshold->GetOutput()->GetNumberOfPoints() == 0)
-	//		continue;
+	vtkDataArray* centerlineIds2 = centerlineEnlargedRadius->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
 
-	//	//singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+	for (int i = centerlineIds2->GetRange()[0]; i <= centerlineIds2->GetRange()[1]; i++)
+	{
+		// threshold to get independent centerline
+		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
+		threshold->ThresholdBetween(i, i);
+		threshold->SetInputData(appendFilter->GetOutput());
+		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+		threshold->Update();
 
-	//	// if the single centerline is not the one in recon centerline list, direct append to output
-	//	bool recon = true;
-	//	for (int j = 0; j < ui->listWidgetCenterlineIdsPending->count(); j++)
-	//	{
-	//		int centerlineId = ui->listWidgetCenterlineIdsPending->item(j)->text().toInt();
-	//		if (centerlineId == i)
-	//		{
-	//			recon = false;
-	//			break;
-	//		}
-	//	}
+		if (threshold->GetOutput()->GetNumberOfPoints() == 0)
+			continue;
 
-	//	if (recon)
-	//	{
-	//		// threshold for isolated centerlines
-	//		vtkSmartPointer<vtkConnectivityFilter> connectFilter = vtkSmartPointer<vtkConnectivityFilter>::New();
-	//		connectFilter->SetExtractionModeToAllRegions();
-	//		connectFilter->SetInputData(threshold->GetOutput());
-	//		connectFilter->ColorRegionsOn(); // to generate RegionId array
-	//		connectFilter->Update();
+		vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+		geomFilter->SetInputData(threshold->GetOutput());
+		geomFilter->Update();
 
-	//		for (int j = 0; j < connectFilter->GetNumberOfExtractedRegions(); j++)
-	//		{
-	//			// threshold to get independent centerline
-	//			vtkSmartPointer<vtkThreshold> threshold2 = vtkSmartPointer<vtkThreshold>::New();
-	//			threshold2->ThresholdBetween(j, j);
-	//			threshold2->SetInputData(connectFilter->GetOutput());
-	//			threshold2->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "RegionId");
-	//			threshold2->Update();
+		vtkPolyData* singleCenterline = geomFilter->GetOutput();
 
-	//			// convert threshold output to vtkpolydata
-	//			vtkSmartPointer<vtkGeometryFilter> geometryFilter = vtkSmartPointer<vtkGeometryFilter> ::New();
-	//			geometryFilter->SetInputData(threshold2->GetOutput());
-	//			geometryFilter->Update();
+		std::cout << "centerlineid: " << i << std::endl;
+		singleCenterline->Print(std::cout);
 
-	//			vtkSmartPointer<vtkPolyData> singleCenterline = geometryFilter->GetOutput();
+		singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
 
-	//			// get the end points
-	//			double* center0 = threshold2->GetOutput()->GetPoint(0);
-	//			double tangent0[3];
-	//			tangent0[0] = threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 0);
-	//			tangent0[1] = threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 1);
-	//			tangent0[2] = threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 2);
-	//			double radius0 = threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(0, 0);
+		// get the end points
+		double* center0 = singleCenterline->GetPoint(0);
+		double tangent0[3];
+		tangent0[0] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 0);
+		tangent0[1] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 1);
+		tangent0[2] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 2);
+		double radius0 = singleCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(0, 0);
 
-	//			vtkNew<vtkSphere> sphere0;
-	//			sphere0->SetCenter(center0[0], center0[1], center0[2]);
-	//			sphere0->SetRadius(radius0*1.5);
+		vtkNew<vtkSphere> sphere0;
+		sphere0->SetCenter(center0[0], center0[1], center0[2]);
+		sphere0->SetRadius(radius0*1.5);
 
-	//			vtkNew<vtkPlane> plane0;
-	//			plane0->SetOrigin(center0[0], center0[1], center0[2]);
-	//			plane0->SetNormal(1.0*tangent0[0], 1.0*tangent0[1], 1.0*tangent0[2]);
+		vtkNew<vtkPlane> plane0;
+		plane0->SetOrigin(center0[0], center0[1], center0[2]);
+		plane0->SetNormal(1.0*tangent0[0], 1.0*tangent0[1], 1.0*tangent0[2]);
 
-	//			vtkNew<vtkImplicitBoolean> compositeFunction0;
-	//			compositeFunction0->AddFunction(sphere0);
-	//			compositeFunction0->AddFunction(plane0);
-	//			compositeFunction0->SetOperationTypeToIntersection();
+		vtkNew<vtkImplicitBoolean> compositeFunction0;
+		compositeFunction0->AddFunction(sphere0);
+		compositeFunction0->AddFunction(plane0);
+		compositeFunction0->SetOperationTypeToIntersection();
 
-	//			double* center1 = threshold2->GetOutput()->GetPoint(threshold2->GetOutput()->GetNumberOfPoints() - 1);
-	//			double tangent1[3];
-	//			// reverse tangent direction
-	//			tangent1[0] = -1.0*threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(threshold2->GetOutput()->GetNumberOfPoints() - 1, 0);
-	//			tangent1[1] = -1.0*threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(threshold2->GetOutput()->GetNumberOfPoints() - 1, 1);
-	//			tangent1[2] = -1.0*threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(threshold2->GetOutput()->GetNumberOfPoints() - 1, 2);
-	//			double radius1 = threshold2->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(threshold2->GetOutput()->GetNumberOfPoints() - 1, 0);
+		double* center1 = singleCenterline->GetPoint(singleCenterline->GetNumberOfPoints() - 1);
+		double tangent1[3];
+		// reverse tangent direction
+		tangent1[0] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 0);
+		tangent1[1] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 1);
+		tangent1[2] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 2);
+		double radius1 = singleCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 0);
 
-	//			vtkNew<vtkSphere> sphere1;
-	//			sphere1->SetCenter(center1[0], center1[1], center1[2]);
-	//			sphere1->SetRadius(radius1*1.5);
+		vtkNew<vtkSphere> sphere1;
+		sphere1->SetCenter(center1[0], center1[1], center1[2]);
+		sphere1->SetRadius(radius1*1.5);
 
-	//			vtkNew<vtkPlane> plane1;
-	//			plane1->SetOrigin(center1[0], center1[1], center1[2]);
-	//			plane1->SetNormal(1.0*tangent1[0], 1.0*tangent1[1], 1.0*tangent1[2]);
+		vtkNew<vtkPlane> plane1;
+		plane1->SetOrigin(center1[0], center1[1], center1[2]);
+		plane1->SetNormal(1.0*tangent1[0], 1.0*tangent1[1], 1.0*tangent1[2]);
 
-	//			vtkNew<vtkImplicitBoolean> compositeFunction1;
-	//			compositeFunction1->AddFunction(sphere1);
-	//			compositeFunction1->AddFunction(plane1);
-	//			compositeFunction1->SetOperationTypeToIntersection();
+		vtkNew<vtkImplicitBoolean> compositeFunction1;
+		compositeFunction1->AddFunction(sphere1);
+		compositeFunction1->AddFunction(plane1);
+		compositeFunction1->SetOperationTypeToIntersection();
 
-	//			// add to overall composite function
-	//			endSpheresFunction->AddFunction(compositeFunction0);
-	//			endSpheresFunction->AddFunction(compositeFunction1);
-	//		}
-	//	}
-	//}
+		// add to overall composite function
+		endSpheresFunction->AddFunction(compositeFunction0);
+		endSpheresFunction->AddFunction(compositeFunction1);
+	}
 
-	//vtkNew<vtkImplicitBoolean> compositeFunction;
-	//compositeFunction->AddFunction(tubeFunction);
-	//compositeFunction->AddFunction(endSpheresFunction);
-	//compositeFunction->SetOperationTypeToDifference();
+	vtkNew<vtkImplicitBoolean> compositeFunction;
+	compositeFunction->AddFunction(tubeFunction);
+	compositeFunction->AddFunction(endSpheresFunction);
+	compositeFunction->SetOperationTypeToDifference();
 
-	//// create mask array with spheres and centerline tubes
-	//vtkSmartPointer<vtkDoubleArray> maskArray = vtkSmartPointer<vtkDoubleArray>::New();
-	//maskArray->SetNumberOfComponents(1);
-	//maskArray->SetNumberOfTuples(m_io->GetVoronoiDiagram()->GetNumberOfPoints());
-	//maskArray->SetName("Mask");
-	//maskArray->FillComponent(0, 0);
+	// create mask array with spheres and centerline tubes
+	vtkSmartPointer<vtkDoubleArray> maskArray = vtkSmartPointer<vtkDoubleArray>::New();
+	maskArray->SetNumberOfComponents(1);
+	maskArray->SetNumberOfTuples(m_io->GetSurface()->GetNumberOfPoints());
+	maskArray->SetName("Mask");
+	maskArray->FillComponent(0, 0);
 
-	//std::cout << "evaluating voronoi diagram..." << std::endl;
-	//m_statusLabel->setText("Evaluating voronoi diagram");
-	//m_statusProgressBar->setValue(75);
+	std::cout << "evaluating surface file..." << std::endl;
 
-	//compositeFunction->EvaluateFunction(m_io->GetVoronoiDiagram()->GetPoints()->GetData(), maskArray);
+	compositeFunction->EvaluateFunction(m_io->GetSurface()->GetPoints()->GetData(), maskArray);
 
-	//m_io->GetVoronoiDiagram()->GetPointData()->AddArray(maskArray);
-	//m_io->GetVoronoiDiagram()->GetPointData()->SetActiveScalars("Mask");
+	m_io->GetSurface()->GetPointData()->AddArray(maskArray);
+	m_io->GetSurface()->GetPointData()->SetActiveScalars("Mask");
 
-	//vtkSmartPointer<vtkClipPolyData> clipperV = vtkSmartPointer<vtkClipPolyData>::New();
-	//clipperV->SetValue(0);
-	//clipperV->SetInsideOut(true);
-	//clipperV->GenerateClippedOutputOn();
-	//clipperV->SetInputData(m_io->GetVoronoiDiagram());
-	//clipperV->Update();
+	vtkSmartPointer<vtkClipPolyData> clipperS = vtkSmartPointer<vtkClipPolyData>::New();
+	clipperS->SetValue(0);
+	clipperS->SetInsideOut(true);
+	clipperS->GenerateClippedOutputOff();
+	clipperS->SetInputData(m_io->GetSurface());
+	clipperS->Update();
 
-	//vtkSmartPointer<vtkCleanPolyData> cleanerV = vtkSmartPointer<vtkCleanPolyData>::New();
-	//cleanerV->SetInputData(clipperV->GetOutput());
-	//cleanerV->Update();
+	vtkSmartPointer<vtkCleanPolyData> cleanerS = vtkSmartPointer<vtkCleanPolyData>::New();
+	cleanerS->SetInputData(clipperS->GetOutput());
+	cleanerS->Update();
 
-	////vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-	////geomFilter->SetInputData(clipperV->GetOutput());
-	////geomFilter->Update();
+	//vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+	//geomFilter->SetInputData(clipperV->GetOutput());
+	//geomFilter->Update();
 
-	//m_io->SetVornoiDiagram(cleanerV->GetOutput());
+	m_io->SetSurface(cleanerS->GetOutput());
+	vtkPolyData* clippedSurface = cleanerS->GetOutput();
 
+	// reconstructed surface
+	if (m_io->GetReconstructedSurface()->GetNumberOfPoints() == 0)
+		return;
+
+	compositeFunction->EvaluateFunction(m_io->GetReconstructedSurface()->GetPoints()->GetData(), maskArray);
+
+	m_io->GetReconstructedSurface()->GetPointData()->AddArray(maskArray);
+	m_io->GetReconstructedSurface()->GetPointData()->SetActiveScalars("Mask");
+
+	vtkSmartPointer<vtkClipPolyData> clipperR = vtkSmartPointer<vtkClipPolyData>::New();
+	clipperR->SetValue(0);
+	clipperR->SetInsideOut(true);
+	clipperR->GenerateClippedOutputOff();
+	clipperR->SetInputData(m_io->GetReconstructedSurface());
+	clipperR->Update();
+
+	vtkSmartPointer<vtkCleanPolyData> cleanerR = vtkSmartPointer<vtkCleanPolyData>::New();
+	cleanerR->SetInputData(clipperR->GetOutput());
+	cleanerR->Update();
+
+	//vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
+	//geomFilter->SetInputData(clipperV->GetOutput());
+	//geomFilter->Update();
+
+	m_io->SetReconstructedSurface(cleanerR->GetOutput());
+	vtkPolyData* clippedReconSurface = cleanerR->GetOutput();
 }
 
 //void Measurements::slotReconAddAll()
