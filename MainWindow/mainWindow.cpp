@@ -163,6 +163,9 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_reconSurfaceActor->GetProperty()->SetColor(1, 1, 1);
 	m_reconSurfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxReconSurfaceOpacity->value());
 
+	m_reconCenterlineActor->SetMapper(m_reconSurfaceMapper);
+	m_reconCenterlineActor->GetProperty()->SetColor(1, 1, 1);
+
 	// voronoi diagram
 	vtkSmartPointer<vtkLookupTable> lut = vtkSmartPointer<vtkLookupTable>::New();
 	lut->SetNumberOfColors(256);
@@ -248,7 +251,8 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonReconClip, &QPushButton::clicked, this, &MainWindow::slotReconClip);
 	connect(ui->pushButtonReconInterpolate, &QPushButton::clicked, this, &MainWindow::slotReconInterpolate);
 	connect(ui->pushButtonResetRecon, &QPushButton::clicked, this, &MainWindow::slotResetRecon);
-	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
+	connect(ui->pushButtonLoadReconCenterline, &QPushButton::clicked, this, &MainWindow::slotBrowseReconSurface);
+	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveReconCenterline);
 	connect(ui->pushButtonSaveReconVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
 	connect(ui->pushButtonReconstruct, &QPushButton::clicked, this, &MainWindow::slotReconstruct);
 	connect(ui->horizontalSliderReconSurfaceOpacity, &QSlider::valueChanged, this, &MainWindow::slotSliderReconSurfaceOpacityChanged);
@@ -288,16 +292,16 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
 
-	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	////ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	//ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
 	
-	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
-	ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	//ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -923,7 +927,7 @@ void MainWindow::slotReconClip()
 	}
 
 	appendFilter->Update();
-	m_io->SetCenterline(appendFilter->GetOutput());
+	m_io->SetReconstructedCenterline(appendFilter->GetOutput());
 
 	m_statusLabel->setText("Clipping centerline complete");
 	m_statusProgressBar->setValue(50);
@@ -1567,6 +1571,45 @@ void MainWindow::slotSpinBoxReconSurfaceOpacityChanged()
 	m_reconSurfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxReconSurfaceOpacity->value());
 
 	ui->qvtkWidget->update();
+}
+
+void MainWindow::slotBrowseReconCenterline()
+{
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open Reconstructed Centerline File"), ui->lineEditCenterline->text(), tr("Reconstructed Centerline Files (*.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	ui->lineEditReconCenterline->setText(fileName);
+
+	m_statusLabel->setText("Loading reconstructed centerline file...");
+	m_statusProgressBar->setValue(51);
+
+	this->enableUI(false);
+	this->m_io->SetCenterlinePath(fileName);
+
+	// Instantiate the watcher to unlock
+	m_ioWatcher = new QFutureWatcher<bool>;
+	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readReconCenterlineComplete()));
+
+	// use QtConcurrent to run the read file on a new thread;
+	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadCenterline);
+	m_ioWatcher->setFuture(future);
+}
+
+void MainWindow::slotSaveReconCenterline()
+{
+	if (m_io->GetReconstructedCenterline()->GetNumberOfPoints() == 0)
+		return;
+
+	QString fileName = QFileDialog::getSaveFileName(this,
+		tr("Save Reconstructed Centerline File"), ui->lineEditReconCenterline->text(), tr("Reconstructed Centerline Files (*.vtk *.vtp)"));
+
+	if (fileName.isNull())
+		return;
+
+	m_io->WriteReconCenterline(fileName);
 }
 
 void MainWindow::slotBrowseReconSurface()
@@ -2505,6 +2548,20 @@ void MainWindow::renderReconSurface()
 
 	ui->qvtkWidget->update();
 }
+
+//void MainWindow::renderReconCenterline()
+//{
+//	if (!(m_io->GetReconstructedCenterline()->GetNumberOfCells() > 0 ||
+//		m_io->GetReconstructedCenterline()->GetNumberOfPoints() > 0))
+//	{
+//		return;
+//	}
+//
+//	m_reconCenterlineMapper->SetScalarVisibility(false);
+//	m_reconCenterlineMapper->SetInputData(m_io->GetReconstructedCenterline());
+//
+//	ui->qvtkWidget->update();
+//}
 
 void MainWindow::renderFirstBifurcationPoint()
 {
@@ -3467,6 +3524,35 @@ void MainWindow::readVoronoiFileComplete()
 
 	delete m_ioWatcher;
 }
+
+//void MainWindow::readReconCenterlineComplete()
+//{
+//	if (!m_ioWatcher->future().result())
+//	{
+//		m_statusLabel->setText("Loading reconstructed centerline file complete");
+//		this->renderReconCenterline();
+//		this->updateCenterlinesInfoWidget();
+//		this->renderFirstBifurcationPoint();
+//		m_preferences->slotUpdateArrays();
+//
+//		m_renderer->ResetCamera();
+//		this->updateCenterlineDataTable();
+//		ui->qvtkWidget->update();
+//	}
+//	else
+//	{
+//		m_statusLabel->setText("Loading reconstructed centerline file fail");
+//	}
+//
+//	this->updateCenterlinesInfoWidget();
+//
+//	m_statusProgressBar->setValue(100);
+//
+//	// unlock ui
+//	this->enableUI(true);
+//
+//	delete m_ioWatcher;
+//}
 
 void MainWindow::readReconSurfaceComplete()
 {

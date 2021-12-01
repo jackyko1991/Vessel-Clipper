@@ -82,6 +82,8 @@ public slots:
 	void slotReconstruct();
 	void slotSliderReconSurfaceOpacityChanged();
 	void slotSpinBoxReconSurfaceOpacityChanged();
+	void slotBrowseReconCenterline();
+	void slotSaveReconCenterline();
 	void slotBrowseReconSurface();
 	void slotSaveReconSurface();
 
@@ -127,6 +129,7 @@ private slots:
 	void readSurfaceFileComplete();
 	void readCenterlineFileComplete();
 	void readVoronoiFileComplete();
+	void readReconCenterlineComplete();
 	void readReconSurfaceComplete();
 
 private:
@@ -136,6 +139,7 @@ private:
 	void renderCenterline();
 	void renderVoronoi();
 	void renderReconSurface();
+	void renderReconCenterline();
 	void renderFirstBifurcationPoint();
 	void renderCenterlineKeyPoints();
 	void updateCenterlineKeyPointsTable();
@@ -217,6 +221,10 @@ private:
 	// reconstructed surface
 	vtkSmartPointer<vtkPolyDataMapper> m_reconSurfaceMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	vtkSmartPointer<vtkActor> m_reconSurfaceActor = vtkSmartPointer<vtkActor>::New();
+
+	// reconstructed centerline
+	vtkSmartPointer<vtkPolyDataMapper> m_reconCenterlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	vtkSmartPointer<vtkActor> m_reconCenterlineActor = vtkSmartPointer<vtkActor>::New();
 
 	// utils
 	BranchOperation* m_branchOperation;

@@ -37,6 +37,11 @@ void IO::SetVoronoiPath(QString path)
 	m_voronoiFile.setFile(path);
 }
 
+void IO::SetReconCenterlinePath(QString path)
+{
+	m_reconstructedCenterlineFile.setFile(path);
+}
+
 void IO::SetReconSurfacePath(QString path)
 {
 	m_reconstructedSurfaceFile.setFile(path);
@@ -243,6 +248,73 @@ bool IO::ReadVoronoi()
 		}
 	}
 	return 0;
+}
+
+bool IO::ReadReconCenterline()
+{
+	if (!(m_reconstructedCenterlineFile.isFile() && m_reconstructedCenterlineFile.exists()))
+	{
+		emit reconstructedCenterlineFileReadStatus(1);
+		return 1;
+	}
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_reconstructedCenterlineFile.suffix() == "vtp" || m_reconstructedCenterlineFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+		reader->SetFileName(m_reconstructedCenterlineFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedCenterlineFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit reconstructedCenterlineFileReadStatus(0);
+		}
+	}
+	else if (m_reconstructedCenterlineFile.suffix() == "stl" || m_reconstructedCenterlineFile.suffix() == "STL")
+	{
+		vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
+		reader->SetFileName(m_reconstructedCenterlineFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedCenterlineFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit reconstructedCenterlineFileReadStatus(0);
+		}
+	}
+	else if (m_reconstructedCenterlineFile.suffix() == "vtk" || m_reconstructedCenterlineFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+		reader->SetFileName(m_reconstructedCenterlineFile.absoluteFilePath().toStdString().c_str());
+		reader->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		reader->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedCenterlineFileReadStatus(1);
+			return 1;
+		}
+		else
+		{
+			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit reconstructedCenterlineFileReadStatus(0);
+		}
+	}
+
+	this->AutoLocateFirstBifurcationPoint();
+	return 0;
+
 }
 
 bool IO::ReadReconSurface()
@@ -561,15 +633,15 @@ void IO::SetReconstructedSurface(vtkPolyData * polydata)
 	m_reconSurface->DeepCopy(polydata);
 }
 
-//vtkPolyData * IO::GetInterpolatedCenterline()
-//{
-//	return m_interpolatedCenterline;
-//}
-//
-//void IO::SetInterpolatedCenterline(vtkPolyData *polydata)
-//{
-//	m_interpolatedCenterline->DeepCopy(polydata);
-//}
+vtkPolyData * IO::GetReconstructedCenterline()
+{
+	return m_reconCenterline;
+}
+
+void IO::SetReconstructedCenterline(vtkPolyData *polydata)
+{
+	m_reconCenterline->DeepCopy(polydata);
+}
 
 vtkPolyData * IO::GetOriginalSurface()
 {
