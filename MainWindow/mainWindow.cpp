@@ -163,7 +163,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_reconSurfaceActor->GetProperty()->SetColor(1, 1, 1);
 	m_reconSurfaceActor->GetProperty()->SetOpacity(ui->doubleSpinBoxReconSurfaceOpacity->value());
 
-	m_reconCenterlineActor->SetMapper(m_reconSurfaceMapper);
+	m_reconCenterlineActor->SetMapper(m_reconCenterlineMapper);
 	m_reconCenterlineActor->GetProperty()->SetColor(1, 1, 1);
 
 	// voronoi diagram
@@ -185,6 +185,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	m_renderer->AddActor(m_distalNormalActor);
 	m_renderer->AddActor(m_vornoiActor);
 	m_renderer->AddActor(m_reconSurfaceActor);
+	m_renderer->AddActor(m_reconCenterlineActor);
 
 	this->createFirstBifurationPoint();
 	this->createCurrentPickingPoint();
@@ -230,6 +231,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->tableWidgetCenterlineKeyPoints, &QTableWidget::currentCellChanged, this, &MainWindow::slotCurrentCenterlineKeyPoint);
 	connect(m_preferences, SIGNAL(signalComboBoxesUpdated()), this, SLOT(slotCenterlineConfigUpdate()));
 	connect(m_preferences, SIGNAL(signalComboBoxesUpdated()), m_measurements, SLOT(slotCenterlineConfigUpdate()));
+	connect(ui->checkBoxCenterlineVisisble, &QCheckBox::stateChanged, this, &MainWindow::renderCenterline);
 
 	// clipping
 	connect(ui->pushButtonSaveCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveCenterline);
@@ -251,7 +253,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->pushButtonReconClip, &QPushButton::clicked, this, &MainWindow::slotReconClip);
 	connect(ui->pushButtonReconInterpolate, &QPushButton::clicked, this, &MainWindow::slotReconInterpolate);
 	connect(ui->pushButtonResetRecon, &QPushButton::clicked, this, &MainWindow::slotResetRecon);
-	connect(ui->pushButtonLoadReconCenterline, &QPushButton::clicked, this, &MainWindow::slotBrowseReconSurface);
+	connect(ui->pushButtonLoadReconCenterline, &QPushButton::clicked, this, &MainWindow::slotBrowseReconCenterline);
 	connect(ui->pushButtonSaveReconCenterline, &QPushButton::clicked, this, &MainWindow::slotSaveReconCenterline);
 	connect(ui->pushButtonSaveReconVoronoi, &QPushButton::clicked, this, &MainWindow::slotSaveVoronoi);
 	connect(ui->pushButtonReconstruct, &QPushButton::clicked, this, &MainWindow::slotReconstruct);
@@ -259,6 +261,7 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	connect(ui->doubleSpinBoxReconSurfaceOpacity, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::slotSpinBoxReconSurfaceOpacityChanged);
 	connect(ui->pushButtonLoadReconSurface, &QPushButton::clicked, this, &MainWindow::slotBrowseReconSurface);
 	connect(ui->pushButtonSaveReconSurface, &QPushButton::clicked, this, &MainWindow::slotSaveReconSurface);
+	connect(ui->checkBoxReconCenterlineVisisble, &QCheckBox::stateChanged, this, &MainWindow::renderReconCenterline);
 
 	// extend
 
@@ -294,14 +297,15 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 
 	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
 	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
 	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
 	ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
 	
-	//ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
-	//ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditVoronoi->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditReconSurface->setText("D:/Projects/Vessel-Clipper/Data");
+	ui->lineEditReconCenterline->setText("D:/Projects/Vessel-Clipper/Data");
 };
 
 MainWindow::~MainWindow()
@@ -584,6 +588,7 @@ void MainWindow::slotResetCenterline()
 	this->renderFirstBifurcationPoint();
 	m_preferences->slotUpdateArrays();
 	this->updateCenterlineDataTable();
+	ui->checkBoxCenterlineVisisble->setChecked(true);
 	ui->qvtkWidget->update();
 }
 
@@ -929,6 +934,9 @@ void MainWindow::slotReconClip()
 	appendFilter->Update();
 	m_io->SetReconstructedCenterline(appendFilter->GetOutput());
 
+	this->ui->checkBoxCenterlineVisisble->setChecked(false);
+	this->renderReconCenterline();
+
 	m_statusLabel->setText("Clipping centerline complete");
 	m_statusProgressBar->setValue(50);
 
@@ -942,9 +950,9 @@ void MainWindow::slotReconClip()
 		m_statusLabel->setText("Voronoi diagram not found");
 		m_statusProgressBar->setValue(100);
 
-		this->renderCenterline();
-		this->updateCenterlineDataTable();
-		this->updateCenterlinesInfoWidget();
+		//this->renderCenterline();
+		//this->updateCenterlineDataTable();
+		//this->updateCenterlinesInfoWidget();
 		return;
 	}
 
@@ -953,9 +961,9 @@ void MainWindow::slotReconClip()
 		m_statusLabel->setText("Invalid Frenet tanget/ radius array");
 		m_statusProgressBar->setValue(100);
 
-		this->renderCenterline();
-		this->updateCenterlineDataTable();
-		this->updateCenterlinesInfoWidget();
+		//this->renderCenterline();
+		//this->updateCenterlineDataTable();
+		//this->updateCenterlinesInfoWidget();
 		return;
 	}
 
@@ -964,9 +972,9 @@ void MainWindow::slotReconClip()
 		m_statusLabel->setText("Invalid Frenet tanget/ radius array");
 		m_statusProgressBar->setValue(100);
 
-		this->renderCenterline();
-		this->updateCenterlineDataTable();
-		this->updateCenterlinesInfoWidget();
+		//this->renderCenterline();
+		//this->updateCenterlineDataTable();
+		//this->updateCenterlinesInfoWidget();
 		return;
 	}
 
@@ -977,15 +985,15 @@ void MainWindow::slotReconClip()
 		m_statusLabel->setText("Invalid centerlineids array");
 		m_statusProgressBar->setValue(100);
 		
-		this->renderCenterline();
-		this->updateCenterlineDataTable();
-		this->updateCenterlinesInfoWidget();
+		//this->renderCenterline();
+		//this->updateCenterlineDataTable();
+		//this->updateCenterlinesInfoWidget();
 		return;
 	}
 
 	// create implict function with spheres along clipped centerline
 	vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunction = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
-	tubeFunction->SetInput(m_io->GetCenterline());
+	tubeFunction->SetInput(m_io->GetReconstructedCenterline());
 	tubeFunction->SetPolyBallRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
 
 	vtkNew<vtkImplicitBoolean> endSpheresFunction;
@@ -996,7 +1004,7 @@ void MainWindow::slotReconClip()
 		// threshold to get independent centerline
 		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
 		threshold->ThresholdBetween(i, i);
-		threshold->SetInputData(m_io->GetCenterline());
+		threshold->SetInputData(m_io->GetReconstructedCenterline());
 		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
 		threshold->Update();
 
@@ -1129,10 +1137,10 @@ void MainWindow::slotReconClip()
 
 	m_io->SetVornoiDiagram(cleanerV->GetOutput());
 
-	this->renderCenterline();
 	this->renderVoronoi();
-	this->updateCenterlineDataTable();
-	this->updateCenterlinesInfoWidget();
+	//this->renderReconCenterline();
+	//this->updateCenterlineDataTable();
+	//this->updateCenterlinesInfoWidget();
 
 	m_statusLabel->setText("Clip Voronoi diagram complete");
 	m_statusProgressBar->setValue(100);
@@ -1476,6 +1484,7 @@ void MainWindow::slotReconInterpolate()
 
 void MainWindow::slotResetRecon()
 {
+	ui->checkBoxReconCenterlineVisisble->setChecked(false);
 	this->slotResetCenterline();
 	m_io->SetVornoiDiagram(m_io->GetOriginalVoronoiDiagram());
 	this->renderVoronoi();
@@ -2513,6 +2522,7 @@ void MainWindow::renderCenterline()
 		return;
 	}
 
+	m_centerlineActor->SetVisibility(ui->checkBoxCenterlineVisisble->isChecked());
 	m_centerlineMapper->SetScalarVisibility(false);
 	m_centerlineMapper->SetInputData(m_io->GetCenterline());
 
@@ -2549,19 +2559,22 @@ void MainWindow::renderReconSurface()
 	ui->qvtkWidget->update();
 }
 
-//void MainWindow::renderReconCenterline()
-//{
-//	if (!(m_io->GetReconstructedCenterline()->GetNumberOfCells() > 0 ||
-//		m_io->GetReconstructedCenterline()->GetNumberOfPoints() > 0))
-//	{
-//		return;
-//	}
-//
-//	m_reconCenterlineMapper->SetScalarVisibility(false);
-//	m_reconCenterlineMapper->SetInputData(m_io->GetReconstructedCenterline());
-//
-//	ui->qvtkWidget->update();
-//}
+void MainWindow::renderReconCenterline()
+{
+	if (!(m_io->GetReconstructedCenterline()->GetNumberOfCells() > 0 ||
+		m_io->GetReconstructedCenterline()->GetNumberOfPoints() > 0))
+	{
+		return;
+	}
+
+	m_io->GetReconstructedCenterline()->Print(std::cout);
+
+	m_reconCenterlineActor->SetVisibility(ui->checkBoxReconCenterlineVisisble->isChecked());
+	m_reconCenterlineMapper->SetScalarVisibility(false);
+	m_reconCenterlineMapper->SetInputData(m_io->GetReconstructedCenterline());
+
+	ui->qvtkWidget->update();
+}
 
 void MainWindow::renderFirstBifurcationPoint()
 {
@@ -3525,34 +3538,33 @@ void MainWindow::readVoronoiFileComplete()
 	delete m_ioWatcher;
 }
 
-//void MainWindow::readReconCenterlineComplete()
-//{
-//	if (!m_ioWatcher->future().result())
-//	{
-//		m_statusLabel->setText("Loading reconstructed centerline file complete");
-//		this->renderReconCenterline();
-//		this->updateCenterlinesInfoWidget();
-//		this->renderFirstBifurcationPoint();
-//		m_preferences->slotUpdateArrays();
-//
-//		m_renderer->ResetCamera();
-//		this->updateCenterlineDataTable();
-//		ui->qvtkWidget->update();
-//	}
-//	else
-//	{
-//		m_statusLabel->setText("Loading reconstructed centerline file fail");
-//	}
-//
-//	this->updateCenterlinesInfoWidget();
-//
-//	m_statusProgressBar->setValue(100);
-//
-//	// unlock ui
-//	this->enableUI(true);
-//
-//	delete m_ioWatcher;
-//}
+void MainWindow::readReconCenterlineComplete()
+{
+	if (!m_ioWatcher->future().result())
+	{
+		m_statusLabel->setText("Loading reconstructed centerline file complete");
+		this->renderReconCenterline();
+		//this->updateCenterlinesInfoWidget();
+		m_preferences->slotUpdateArrays();
+
+		m_renderer->ResetCamera();
+		//this->updateCenterlineDataTable();
+		ui->qvtkWidget->update();
+	}
+	else
+	{
+		m_statusLabel->setText("Loading reconstructed centerline file fail");
+	}
+
+	//this->updateCenterlinesInfoWidget();
+
+	m_statusProgressBar->setValue(100);
+
+	// unlock ui
+	this->enableUI(true);
+
+	delete m_ioWatcher;
+}
 
 void MainWindow::readReconSurfaceComplete()
 {

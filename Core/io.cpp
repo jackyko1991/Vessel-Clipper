@@ -532,6 +532,50 @@ bool IO::WriteVoronoi(QString path)
 	return 0;
 }
 
+bool IO::WriteReconCenterline(QString path)
+{
+	QFileInfo m_saveReconCenterlineFile(path);
+
+	vtkSmartPointer<ErrorObserver> errorObserver = vtkSmartPointer<ErrorObserver>::New();
+
+	if (m_saveReconCenterlineFile.suffix() == "vtp" || m_saveReconCenterlineFile.suffix() == "VTP")
+	{
+		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writer->SetFileName(m_saveReconCenterlineFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_centerline);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedCenterlineFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit reconstructedCenterlineFileWriteStatus(0);
+		}
+	}
+	else if (m_saveReconCenterlineFile.suffix() == "vtk" || m_saveReconCenterlineFile.suffix() == "VTK")
+	{
+		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+		writer->SetFileName(m_saveReconCenterlineFile.absoluteFilePath().toStdString().c_str());
+		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
+		writer->SetInputData(m_centerline);
+		writer->Update();
+		if (errorObserver->GetError())
+		{
+			emit reconstructedCenterlineFileWriteStatus(1);
+			return 1;
+		}
+		else
+		{
+			emit reconstructedCenterlineFileWriteStatus(0);
+		}
+	}
+
+	return 0;
+}
+
 bool IO::WriteReconSurface(QString path)
 {
 	QFileInfo m_saveReconSurfaceFile(path);
