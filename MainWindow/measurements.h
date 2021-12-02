@@ -11,6 +11,17 @@ namespace Ui {
 class IO;
 class Preferences;
 class CenterlinesInfoWidget;
+class vtkPolyData;
+
+enum DataType{
+	Original,
+	Recon
+};
+
+enum Section {
+	NTN,
+	FWHM
+};
 
 class Measurements : public QWidget
 {
@@ -39,6 +50,10 @@ private:
 	IO* m_io = nullptr;
 	Preferences* m_preferences = nullptr;
 	CenterlinesInfoWidget* m_centerlinesInfoWidget = nullptr;
+
+	void clipCenterline(double* proximalPt, double* distalPt, DataType dataType, vtkPolyData* clippedCenterline);
+	void clipSurface(vtkPolyData* surface, vtkPolyData* clippedCenterline, DataType dataType, vtkPolyData* clippedSurface);
+	void resetResults();
 };
 
 #endif

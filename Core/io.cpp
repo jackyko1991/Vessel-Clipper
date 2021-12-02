@@ -543,7 +543,7 @@ bool IO::WriteReconCenterline(QString path)
 		vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
 		writer->SetFileName(m_saveReconCenterlineFile.absoluteFilePath().toStdString().c_str());
 		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
-		writer->SetInputData(m_centerline);
+		writer->SetInputData(m_reconCenterline);
 		writer->Update();
 		if (errorObserver->GetError())
 		{
@@ -560,7 +560,7 @@ bool IO::WriteReconCenterline(QString path)
 		vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
 		writer->SetFileName(m_saveReconCenterlineFile.absoluteFilePath().toStdString().c_str());
 		writer->AddObserver(vtkCommand::ErrorEvent, errorObserver);
-		writer->SetInputData(m_centerline);
+		writer->SetInputData(m_reconCenterline);
 		writer->Update();
 		if (errorObserver->GetError())
 		{
