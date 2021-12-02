@@ -22,6 +22,8 @@ public:
 	void SetCurrentTab(int);
 	void SetCenterlineIdsArrayName(QString);
 	void SetAbscissasArrayName(QString);
+	void SetReconCenterlineIdsArrayName(QString);
+	void SetReconAbscissasArrayName(QString);
 	QString GetCenterlineIdsArrayName();
 	QString GetAbscissasArrayName();
 	QString GetFrenetTangentArrayName();
@@ -29,6 +31,13 @@ public:
 	QString GetFrenetBinormalArrayName();
 	QString GetRadiusArrayName();
 	QString GetParallelTransportNormalsName();
+	QString GetReconCenterlineIdsArrayName();
+	QString GetReconAbscissasArrayName();
+	QString GetReconFrenetTangentArrayName();
+	QString GetReconFrenetNormalArrayName();
+	QString GetReconFrenetBinormalArrayName();
+	QString GetReconRadiusArrayName();
+	QString GetReconParallelTransportNormalsName();
 
 public slots:
 	void slotUpdateArrays();

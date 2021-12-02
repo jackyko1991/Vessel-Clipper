@@ -1148,7 +1148,7 @@ void MainWindow::slotReconClip()
 
 void MainWindow::slotReconInterpolate()
 {
-	vtkDataArray* centerlineIds = m_io->GetCenterline()->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+	vtkDataArray* centerlineIds = m_io->GetReconstructedCenterline()->GetCellData()->GetArray(m_preferences->GetReconCenterlineIdsArrayName().toStdString().c_str());
 	if (centerlineIds == nullptr)
 		return;
 
@@ -1168,8 +1168,8 @@ void MainWindow::slotReconInterpolate()
 		// threshold to get independent lines
 		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
 		threshold->ThresholdBetween(i, i);
-		threshold->SetInputData(m_io->GetCenterline());
-		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+		threshold->SetInputData(m_io->GetReconstructedCenterline());
+		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetReconCenterlineIdsArrayName().toStdString().c_str());
 		threshold->Update();
 
 		// convert threshold output to vtkpolydata
@@ -1470,12 +1470,12 @@ void MainWindow::slotReconInterpolate()
 	interpolator->Update();
 
 	m_io->SetVornoiDiagram(voronoiAppendFilter->GetOutput());
-	m_io->GetCenterline()->DeepCopy(interpolator->GetOutput());
+	m_io->SetReconstructedCenterline((vtkPolyData*)interpolator->GetOutput());
 
-	this->renderCenterline();
+	this->renderReconCenterline();
 	this->renderVoronoi();
-	this->updateCenterlineDataTable();
-	this->updateCenterlinesInfoWidget();
+	//this->updateCenterlineDataTable();
+	//this->updateCenterlinesInfoWidget();
 	m_preferences->slotUpdateArrays();
 
 	m_statusLabel->setText("Interpolation complete");
@@ -1493,7 +1493,7 @@ void MainWindow::slotResetRecon()
 void MainWindow::slotReconstruct()
 {
 	vtkPolyData* voronoi = m_io->GetVoronoiDiagram();
-	vtkPolyData* centerline = m_io->GetCenterline();
+	vtkPolyData* centerline = m_io->GetReconstructedCenterline();
 	if (voronoi->GetNumberOfPoints() == 0 || centerline->GetNumberOfPoints() == 0)
 		return;
 
@@ -1501,17 +1501,17 @@ void MainWindow::slotReconstruct()
 	// create implict function with spheres along clipped centerline
 	std::cout << "Computing smoothed radius"<< std::endl;
 	vtkSmartPointer<vtkArrayCalculator> cal = vtkSmartPointer<vtkArrayCalculator>::New();
-	cal->SetInputData(m_io->GetCenterline());
-	cal->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	cal->SetInputData(m_io->GetReconstructedCenterline());
+	cal->AddScalarArrayName(m_preferences->GetReconRadiusArrayName().toStdString().c_str());
 	char buffer[999];
-	sprintf(buffer, "%s * %f", m_preferences->GetRadiusArrayName().toStdString(), 1. - ui->doubleSpinBoxSmooth->value());
+	sprintf(buffer, "%s * %f", m_preferences->GetReconRadiusArrayName().toStdString(), 1. - ui->doubleSpinBoxSmooth->value());
 	cal->SetFunction(buffer);
-	cal->SetResultArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	cal->SetResultArrayName(m_preferences->GetReconRadiusArrayName().toStdString().c_str());
 	cal->Update();
 
 	vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunction = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
 	tubeFunction->SetInput((vtkPolyData*)cal->GetOutput());
-	tubeFunction->SetPolyBallRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	tubeFunction->SetPolyBallRadiusArrayName(m_preferences->GetReconRadiusArrayName().toStdString().c_str());
 	
 	vtkSmartPointer<vtkDoubleArray> maskArray = vtkSmartPointer<vtkDoubleArray>::New();
 	maskArray->SetNumberOfComponents(1);
@@ -1539,10 +1539,10 @@ void MainWindow::slotReconstruct()
 
 	// Reconstructing Surface from Voronoi Diagram
 	std::cout << "Polyball modeling..." << std::endl;
-	std::cout << "Radius array name: " << m_preferences->GetRadiusArrayName().toStdString() << std::endl;
+	std::cout << "Radius array name: " << m_preferences->GetReconRadiusArrayName().toStdString() << std::endl;
 	vtkSmartPointer<vtkvmtkPolyBallModeller> modeller = vtkSmartPointer<vtkvmtkPolyBallModeller>::New();
 	modeller->SetInputData(clipperSmooth->GetOutput());
-	modeller->SetRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	modeller->SetRadiusArrayName(m_preferences->GetReconRadiusArrayName().toStdString().c_str());
 	//modeller->SetRadiusArrayName("Radius");
 	modeller->UsePolyBallLineOff();
 	int polyBallImageSize[3] = { 90,90,90 };
@@ -1596,14 +1596,14 @@ void MainWindow::slotBrowseReconCenterline()
 	m_statusProgressBar->setValue(51);
 
 	this->enableUI(false);
-	this->m_io->SetCenterlinePath(fileName);
+	this->m_io->SetReconCenterlinePath(fileName);
 
 	// Instantiate the watcher to unlock
 	m_ioWatcher = new QFutureWatcher<bool>;
 	connect(m_ioWatcher, SIGNAL(finished()), this, SLOT(readReconCenterlineComplete()));
 
 	// use QtConcurrent to run the read file on a new thread;
-	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadCenterline);
+	QFuture<bool> future = QtConcurrent::run(this->m_io, &IO::ReadReconCenterline);
 	m_ioWatcher->setFuture(future);
 }
 
@@ -2567,8 +2567,6 @@ void MainWindow::renderReconCenterline()
 		return;
 	}
 
-	m_io->GetReconstructedCenterline()->Print(std::cout);
-
 	m_reconCenterlineActor->SetVisibility(ui->checkBoxReconCenterlineVisisble->isChecked());
 	m_reconCenterlineMapper->SetScalarVisibility(false);
 	m_reconCenterlineMapper->SetInputData(m_io->GetReconstructedCenterline());
@@ -3357,9 +3355,9 @@ void MainWindow::ExtractCylindericInterpolationVoronoiDiagram(vtkPolyData * clip
 
 	//std::cout << "extract interpolation data from clipped voronoi diagram" << std::endl;
 
-	vtkDataArray* tangentArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str());
-	vtkDataArray* parallelTransportNormalsArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetParallelTransportNormalsName().toStdString().c_str());
-	vtkDataArray* radiusArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	vtkDataArray* tangentArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetReconFrenetTangentArrayName().toStdString().c_str());
+	vtkDataArray* parallelTransportNormalsArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetReconParallelTransportNormalsName().toStdString().c_str());
+	vtkDataArray* radiusArray = clippedCenterline->GetPointData()->GetArray(m_preferences->GetReconRadiusArrayName().toStdString().c_str());
 
 	if (idx == -1)
 		idx = clippedCenterline->GetNumberOfPoints() - 1;
