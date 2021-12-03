@@ -99,6 +99,13 @@ signals:
 	void reconstructedSurfaceFileWriteStatus(bool);
 	void centerlineKeyPointUpdated();
 
+	// data updated
+	void signalSurfaceUpdated();
+	void signalCenterlineUpdated();
+	void signalReconCenterlineUpdated();
+	void signalReconSurfaceUpdated();
+	void signalVoronoiUpdated();
+
 private:
 	QFileInfo m_surfaceFile;
 	QFileInfo m_centerlineFile;

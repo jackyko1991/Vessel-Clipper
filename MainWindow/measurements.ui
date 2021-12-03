@@ -639,7 +639,7 @@
         <item>
          <widget class="QLabel" name="label_32">
           <property name="text">
-           <string>Hausdorff Distance (Recon to Lesion) (mm):</string>
+           <string>Hausdorff Distance (mm):</string>
           </property>
          </widget>
         </item>
@@ -659,16 +659,16 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_34">
+       <layout class="QHBoxLayout" name="horizontalLayout_36">
         <item>
-         <widget class="QLabel" name="label_33">
+         <widget class="QLabel" name="label_35">
           <property name="text">
-           <string>Hausdorff Distance (Lesion to Recon) (mm):</string>
+           <string>Relative Distance (Lesion to Recon) (mm):</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="labelHausdorffDistanceLesionToRecon">
+         <widget class="QLabel" name="labelRelativeDistanceLesionToRecon">
           <property name="maximumSize">
            <size>
             <width>60</width>
@@ -687,36 +687,12 @@
         <item>
          <widget class="QLabel" name="label_34">
           <property name="text">
-           <string>RMS Distance (Recon to Lesion) (mm):</string>
+           <string>Relative Distance (Recon to Lesion) (mm):</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="labellabelRmsDistanceReconToLesion">
-          <property name="maximumSize">
-           <size>
-            <width>60</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>N/A</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_36">
-        <item>
-         <widget class="QLabel" name="label_35">
-          <property name="text">
-           <string>RMS Distance (Lesion to Recon) (mm):</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="labelRmsDistanceLesionToRecon">
+         <widget class="QLabel" name="labellabelRelativeDistanceReconToLesion">
           <property name="maximumSize">
            <size>
             <width>60</width>
@@ -749,11 +725,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_65">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
+      <widget class="QComboBox" name="comboBoxPointDataArray"/>
      </item>
     </layout>
    </item>

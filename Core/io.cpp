@@ -139,6 +139,7 @@ bool IO::ReadCenterline()
 		{
 			m_original_centerline->DeepCopy(reader->GetOutput());
 			m_centerline->DeepCopy(reader->GetOutput());
+			emit signalCenterlineUpdated();
 			emit centerlineFileReadStatus(0);
 		}
 	}
@@ -157,6 +158,7 @@ bool IO::ReadCenterline()
 		{
 			m_original_centerline->DeepCopy(reader->GetOutput());
 			m_centerline->DeepCopy(reader->GetOutput());
+			emit signalCenterlineUpdated();
 			emit centerlineFileReadStatus(0);
 		}
 	}
@@ -175,6 +177,7 @@ bool IO::ReadCenterline()
 		{
 			m_original_centerline->DeepCopy(reader->GetOutput());
 			m_centerline->DeepCopy(reader->GetOutput());
+			emit signalCenterlineUpdated();
 			emit centerlineFileReadStatus(0);
 		}
 	}
@@ -208,6 +211,7 @@ bool IO::ReadVoronoi()
 		{
 			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
 			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit signalVoronoiUpdated();
 			emit voronoiFileReadStatus(0);
 		}
 	}
@@ -226,6 +230,7 @@ bool IO::ReadVoronoi()
 		{
 			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
 			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit signalVoronoiUpdated();
 			emit voronoiFileReadStatus(0);
 		}
 	}
@@ -244,6 +249,7 @@ bool IO::ReadVoronoi()
 		{
 			m_original_voronoiDiagram->DeepCopy(reader->GetOutput());
 			m_voronoiDiagram->DeepCopy(reader->GetOutput());
+			emit signalVoronoiUpdated();
 			emit voronoiFileReadStatus(0);
 		}
 	}
@@ -274,6 +280,7 @@ bool IO::ReadReconCenterline()
 		else
 		{
 			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit signalReconCenterlineUpdated();
 			emit reconstructedCenterlineFileReadStatus(0);
 		}
 	}
@@ -291,6 +298,7 @@ bool IO::ReadReconCenterline()
 		else
 		{
 			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit signalReconCenterlineUpdated();
 			emit reconstructedCenterlineFileReadStatus(0);
 		}
 	}
@@ -308,6 +316,7 @@ bool IO::ReadReconCenterline()
 		else
 		{
 			m_reconCenterline->DeepCopy(reader->GetOutput());
+			emit signalReconCenterlineUpdated();
 			emit reconstructedCenterlineFileReadStatus(0);
 		}
 	}
@@ -341,6 +350,7 @@ bool IO::ReadReconSurface()
 		else
 		{
 			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit signalReconSurfaceUpdated();
 			emit reconstructedSurfaceFileReadStatus(0);
 		}
 	}
@@ -358,6 +368,7 @@ bool IO::ReadReconSurface()
 		else
 		{
 			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit signalReconSurfaceUpdated();
 			emit reconstructedSurfaceFileReadStatus(0);
 		}
 	}
@@ -375,6 +386,7 @@ bool IO::ReadReconSurface()
 		else
 		{
 			m_reconSurface->DeepCopy(reader->GetOutput());
+			emit signalReconSurfaceUpdated();
 			emit reconstructedSurfaceFileReadStatus(0);
 		}
 	}
@@ -645,6 +657,7 @@ vtkPolyData * IO::GetSurface()
 void IO::SetSurface(vtkPolyData * polydata)
 {
 	m_surface->DeepCopy(polydata);
+	emit signalSurfaceUpdated();
 }
 
 vtkPolyData * IO::GetCenterline()
@@ -655,6 +668,7 @@ vtkPolyData * IO::GetCenterline()
 void IO::SetCenterline(vtkPolyData *polydata)
 {
 	m_centerline->DeepCopy(polydata);
+	emit signalCenterlineUpdated();
 }
 
 vtkPolyData * IO::GetVoronoiDiagram()
@@ -665,6 +679,7 @@ vtkPolyData * IO::GetVoronoiDiagram()
 void IO::SetVornoiDiagram(vtkPolyData* polydata)
 {
 	m_voronoiDiagram->DeepCopy(polydata);
+	emit signalVoronoiUpdated();
 }
 
 vtkPolyData * IO::GetReconstructedSurface()
@@ -675,6 +690,7 @@ vtkPolyData * IO::GetReconstructedSurface()
 void IO::SetReconstructedSurface(vtkPolyData * polydata)
 {
 	m_reconSurface->DeepCopy(polydata);
+	emit signalReconSurfaceUpdated();
 }
 
 vtkPolyData * IO::GetReconstructedCenterline()
@@ -685,6 +701,7 @@ vtkPolyData * IO::GetReconstructedCenterline()
 void IO::SetReconstructedCenterline(vtkPolyData *polydata)
 {
 	m_reconCenterline->DeepCopy(polydata);
+	emit signalReconCenterlineUpdated();
 }
 
 vtkPolyData * IO::GetOriginalSurface()

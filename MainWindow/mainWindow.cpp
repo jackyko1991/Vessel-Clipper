@@ -295,11 +295,11 @@ MainWindow::MainWindow(QMainWindow *parent) : ui(new Ui::MainWindow)
 	//ui->lineEditSurface->setText("Z:/data/intracranial");
 	//ui->lineEditCenterline->setText("Z:/data/intracranial");
 
-	ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
-	ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
-	ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
-	ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/");
+	//ui->lineEditCenterline->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/CFD_OpenFOAM_result/centerlines");
+	//ui->lineEditVoronoi->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
+	//ui->lineEditReconSurface->setText("Z:/data/intracranial/data_ESASIS_followup/medical/001/baseline/recon_stenosis");
 	
 	ui->lineEditSurface->setText("D:/Projects/Vessel-Clipper/Data");
 	ui->lineEditCenterline->setText("D:/Projects/Vessel-Clipper/Data");

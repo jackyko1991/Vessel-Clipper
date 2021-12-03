@@ -22,6 +22,8 @@
 #include "vtkArrayCalculator.h"
 #include "vtkCleanPolyData.h"
 #include "vtkMassProperties.h"
+#include "vtkDistancePolyDataFilter.h"
+#include "vtkHausdorffDistancePointSetFilter.h"
 
 // vmtk
 #include "vtkvmtkPolyBallLine.h"
@@ -59,6 +61,7 @@ void Measurements::SetPreference(Preferences *preferences)
 void Measurements::SetDataIo(IO *io)
 {
 	m_io = io;
+	connect(m_io, SIGNAL(signalCenterlineUpdated()), this, SLOT(slotUpdatePointDataArray()));
 }
 
 void Measurements::SetCenterlinesInfoWidget(CenterlinesInfoWidget *centerlinesInfoWidget)
@@ -91,6 +94,16 @@ void Measurements::slotCenterlineConfigUpdate()
 
 	//for (int i = centerlineIdsArray->GetRange()[0]; i <= centerlineIdsArray->GetRange()[1]; i++)
 	//	ui->listWidgetCenterlineIdsPending->addItem(QString::number(i));
+}
+
+void Measurements::slotUpdatePointDataArray()
+{
+	ui->comboBoxPointDataArray->clear();
+	for (int i = 0; i < m_io->GetCenterline()->GetPointData()->GetNumberOfArrays(); i++)
+	{
+		ui->comboBoxPointDataArray->addItem(m_io->GetCenterline()->GetPointData()->GetArrayName(i));
+	}
+	ui->comboBoxPointDataArray->setCurrentIndex(0);
 }
 
 void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataType dataType, vtkPolyData* clippedCenterline)
@@ -495,9 +508,8 @@ void Measurements::resetResults()
 	this->ui->labelDoSNascet->setText("N/A");
 	this->ui->labelDistanceFactor->setText("N/A");
 	this->ui->labelHausdorffDistanceReconToLesion->setText("N/A");
-	this->ui->labelHausdorffDistanceLesionToRecon->setText("N/A");
-	this->ui->labellabelRmsDistanceReconToLesion->setText("N/A");
-	this->ui->labelRmsDistanceLesionToRecon->setText("N/A");
+	this->ui->labelRelativeDistanceLesionToRecon->setText("N/A");
+	this->ui->labellabelRelativeDistanceReconToLesion->setText("N/A");
 
 	// Point data array
 	this->ui->labelPointDataMaximum->setText("N/A");
@@ -561,6 +573,7 @@ void Measurements::slotUpdate()
 	// ======================== clip NTN centerline  ========================
 	std::cout << "clipping NTN centerline" << std::endl;
 	vtkSmartPointer<vtkPolyData> clippedCenterline = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> clippedSurface = vtkSmartPointer<vtkPolyData>::New();
 	this->clipCenterline(proximalPt, distalPt, DataType::Original, clippedCenterline);
 
 	// check clipped centerline ok
@@ -574,17 +587,16 @@ void Measurements::slotUpdate()
 			ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
 		}
 
-		m_io->SetCenterline(clippedCenterline);
+		//m_io->SetCenterline(clippedCenterline);
 
 		// ======================== clip NTN surface  ========================
 		std::cout << "clipping NTN surface" << std::endl;
-		vtkSmartPointer<vtkPolyData> clippedSurface = vtkSmartPointer<vtkPolyData>::New();
 		this->clipSurface(m_io->GetSurface(), clippedCenterline, DataType::Original, clippedSurface);
 
 		// check clipped centerline ok
 		if (clippedSurface->GetNumberOfPoints() != 0)
 		{
-			m_io->SetSurface(clippedSurface);
+			//m_io->SetSurface(clippedSurface);
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
@@ -602,6 +614,7 @@ void Measurements::slotUpdate()
 	// ======================== clip NTN recon centerline  ========================
 	std::cout << "clipping NTN recon centerline" << std::endl;
 	vtkSmartPointer<vtkPolyData> clippedReconCenterline = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> clippedReconSurface = vtkSmartPointer<vtkPolyData>::New();
 	this->clipCenterline(proximalPt, distalPt, DataType::Recon, clippedReconCenterline);
 
 	// check clipped centerline ok
@@ -614,17 +627,16 @@ void Measurements::slotUpdate()
 		//	ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
 		//}
 
-		m_io->SetReconstructedCenterline(clippedReconCenterline);
+		//m_io->SetReconstructedCenterline(clippedReconCenterline);
 
 		// ======================== clip NTN recon surface  ========================
 		std::cout << "clipping NTN recon surface" << std::endl;
-		vtkSmartPointer<vtkPolyData> clippedReconSurface = vtkSmartPointer<vtkPolyData>::New();
 		this->clipSurface(m_io->GetReconstructedSurface(), clippedReconCenterline, DataType::Recon, clippedReconSurface);
 
 		// check clipped centerline ok
 		if (clippedReconSurface->GetNumberOfPoints() != 0)
 		{
-			m_io->SetReconstructedSurface(clippedReconSurface);
+			//m_io->SetReconstructedSurface(clippedReconSurface);
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
@@ -640,7 +652,7 @@ void Measurements::slotUpdate()
 
 	if (ui->labelLesionLengthNTN->text() != "N/A" && ui->labelReconLumenalVolumeNTN->text() != "N/A")
 	{
-		double plaqueVol = ui->labelReconLumenalVolumeNTN->text().toDouble() - ui->labelLesionLengthNTN->text().toDouble();
+		double plaqueVol = ui->labelReconLumenalVolumeNTN->text().toDouble() - ui->labelLesionLumenalVolumeNTN->text().toDouble();
 		double volRatio = plaqueVol / ui->labelReconLumenalVolumeNTN->text().toDouble()*100.0;
 		ui->labelLumenalVolDeltaNTN->setText(QString::number(plaqueVol, 'f', 3));
 		ui->labelVolumeRatioNTN->setText(QString::number(volRatio, 'f', 3));
@@ -658,227 +670,217 @@ void Measurements::slotUpdate()
 		}
 	}
 
-	//int stenosisId = locator->FindClosestPoint(stenosisPt);
+	// locate maximal stenosis point
+	double maximalStenosisRadius = clippedCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetRange()[0];
+	double proximalNormalRaidus = clippedCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(0)[0];
+	double distalNormalRaidus = clippedCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(clippedCenterline->GetNumberOfPoints()-1)[0];
+	double dosNascet = (1.0 - maximalStenosisRadius / proximalNormalRaidus)*100.0;
 
+	std::cout << "Degree of stenosis: " << dosNascet << "%" << std::endl;
 
+	ui->labelStenosisRadius->setText(QString::number(maximalStenosisRadius,'f',3));
+	ui->labelProximalNormalRadius->setText(QString::number(proximalNormalRaidus, 'f', 3));
+	ui->labelDistalNormalRadius->setText(QString::number(distalNormalRaidus, 'f', 3));
+	ui->labelDoSNascet->setText(QString::number(dosNascet, 'f', 3));
 
+	// FWHM section
+	std::cout << "Computing FWHM section" << std::endl;
 
+	vtkSmartPointer<vtkArrayCalculator> calDoS = vtkSmartPointer<vtkArrayCalculator>::New();
+	calDoS->SetInputData(clippedCenterline);
+	calDoS->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+	char bufferDoS[999];
+	sprintf(bufferDoS, "(1 - %s / %f) *100", m_preferences->GetRadiusArrayName().toStdString(), proximalNormalRaidus);
+	calDoS->SetFunction(bufferDoS);
+	calDoS->SetResultArrayName("Degree of Stenosis");
+	calDoS->Update();
 
+	vtkPolyData* clippedCenterlineDoS = (vtkPolyData*)calDoS->GetOutput();
 
-	//// FWHM section
-	//std::cout << "Computing FWHM section" << std::endl;
+	vtkSmartPointer<vtkClipPolyData> clipperDoS = vtkSmartPointer<vtkClipPolyData>::New();
+	clipperDoS->SetInputData(clippedCenterlineDoS);
+	clipperDoS->SetValue(dosNascet*0.5);
+	clipperDoS->GenerateClippedOutputOff();
+	clipperDoS->SetInsideOut(false);
+	clipperDoS->Update();
 
-	//double stenosisPt[3] = {
-	//	m_centerlinesInfoWidget->GetStenosisPoint()[0],
-	//	m_centerlinesInfoWidget->GetStenosisPoint()[1],
-	//	m_centerlinesInfoWidget->GetStenosisPoint()[2]
-	//};
-	//std::cout << "stenosis point: " << stenosisPt[0] << ", " << stenosisPt[1] << ", " << stenosisPt[2] << std::endl;
+	// get the key points
+	double proximalPtFwhm[3] = {
+		clipperDoS->GetOutput()->GetPoint(0)[0],
+		clipperDoS->GetOutput()->GetPoint(0)[1],
+		clipperDoS->GetOutput()->GetPoint(0)[2]
+	};
 
-	//if (stenosisPt[0] == 0 && stenosisPt[1] == 0 && stenosisPt[2] == 0)
-	//{
-	//	QMessageBox msgBox;
-	//	msgBox.setText("Invalid stenosis points, FWHM calcluation abort.");
-	//	msgBox.exec();
-	//	return;
-	//}
+	double distalPtFwhm[3] = {
+		clipperDoS->GetOutput()->GetPoint(clipperDoS->GetOutput()->GetNumberOfPoints()-1)[0],
+		clipperDoS->GetOutput()->GetPoint(clipperDoS->GetOutput()->GetNumberOfPoints() - 1)[1],
+		clipperDoS->GetOutput()->GetPoint(clipperDoS->GetOutput()->GetNumberOfPoints() - 1)[2]
+	};
 
-	//vtkSmartPointer<vtkKdTreePointLocator> stenosisLocator = vtkSmartPointer<vtkKdTreePointLocator>::New();
-	//stenosisLocator->SetDataSet(appendFilter->GetOutput());
-	//stenosisLocator->BuildLocator();
-	//int stenosisId = stenosisLocator->FindClosestPoint(stenosisPt);
+	// ======================== clip FWHM centerline  ========================
+	std::cout << "clipping FWHM centerline" << std::endl;
+	vtkSmartPointer<vtkPolyData> clippedCenterlineFWHM = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> clippedSurfaceFWHM = vtkSmartPointer<vtkPolyData>::New();
+	this->clipCenterline(proximalPtFwhm, distalPtFwhm, DataType::Original, clippedCenterlineFWHM);
 
-	//// locate maximal stenosis point
-	//double maximalStenosisRadius = appendFilter->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetRange()[stenosisId];
-	//double proximalNormalRaidus = appendFilter->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(0)[0];
-	//double distalNormalRaidus = appendFilter->GetOutput()->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetTuple(appendFilter->GetOutput()->GetNumberOfPoints()-1)[0];
-	//double dosNascet = (1.0 - maximalStenosisRadius / proximalNormalRaidus)*100.0;
+	// check clipped centerline ok
+	if (clippedCenterlineFWHM->GetNumberOfPoints() != 0)
+	{
+		vtkDataArray* abscissasClipped = clippedCenterlineFWHM->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+		if (abscissasClipped != nullptr && abscissasClipped->GetNumberOfTuples() > 0)
+		{
 
-	//std::cout << "Degree of stenosis: " << dosNascet << "%" << std::endl;
+			double fwhmLength = abscissasClipped->GetRange()[1] - abscissasClipped->GetRange()[0];
+			ui->labelLesionLengthFWHM->setText(QString::number(fwhmLength, 'f', 3));
+		}
 
-	//ui->labelStenosisRadius->setText(QString::number(maximalStenosisRadius,'f',3));
-	//ui->labelProximalNormalRadius->setText(QString::number(proximalNormalRaidus, 'f', 3));
-	//ui->labelDistalNormalRadius->setText(QString::number(distalNormalRaidus, 'f', 3));
-	//ui->labelDoSNascet->setText(QString::number(dosNascet, 'f', 3));
+		//m_io->SetCenterline(clippedCenterlineFWHM);
 
-	//vtkSmartPointer<vtkArrayCalculator> calDoS = vtkSmartPointer<vtkArrayCalculator>::New();
-	//calDoS->SetInputData(appendFilter->GetOutput());
-	//calDoS->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
-	//char bufferDoS[999];
-	//sprintf(bufferDoS, "(1 - %s / %f) *100", m_preferences->GetRadiusArrayName().toStdString(), proximalNormalRaidus);
-	//calDoS->SetFunction(bufferDoS);
-	//calDoS->SetResultArrayName("Degree of Stenosis");
-	//calDoS->Update();
+		// ======================== clip FWHM surface  ========================
+		std::cout << "clipping FWHM surface" << std::endl;
+		this->clipSurface(m_io->GetSurface(), clippedCenterlineFWHM, DataType::Original, clippedSurfaceFWHM);
 
-	//vtkPolyData* centerlineDoS = (vtkPolyData*)calDoS->GetOutput();
-	//centerlineDoS->GetPointData()->SetActiveScalars("Degree of Stenosis");
+		// check clipped centerline ok
+		if (clippedSurfaceFWHM->GetNumberOfPoints() != 0)
+		{
+			//m_io->SetSurface(clippedSurfaceFWHM);
 
-	//std::cout << "centerlineDoS" << std::endl;
-	//centerlineDoS->Print(std::cout);
+			// compute original NTN features
+			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
+			capperSurface->SetInputData(clippedSurfaceFWHM);
+			capperSurface->Update();
 
-	//m_io->SetCenterline(centerlineDoS);
+			vtkSmartPointer<vtkMassProperties> massSurface = vtkSmartPointer<vtkMassProperties>::New();
+			massSurface->SetInputData(capperSurface->GetOutput());
+			massSurface->Update();
+			ui->labelLesionLumenalVolumeFWHM->setText(QString::number(massSurface->GetVolume(), 'f', 3));
+		}
+	}
 
-	//vtkSmartPointer<vtkClipPolyData> clipperDoS = vtkSmartPointer<vtkClipPolyData>::New();
-	//clipperDoS->SetInputData(centerlineDoS);
-	//clipperDoS->SetValue(dosNascet*0.5);
-	//clipperDoS->GenerateClippedOutputOff();
-	//clipperDoS->SetInsideOut(false);
-	//clipperDoS->Update();
+	// ======================== clip FWHM recon centerline  ========================
+	std::cout << "clipping FWHM recon centerline" << std::endl;
+	vtkSmartPointer<vtkPolyData> clippedReconCenterlineFWHM = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> clippedReconSurfaceFWHM = vtkSmartPointer<vtkPolyData>::New();
+	this->clipCenterline(proximalPtFwhm, distalPtFwhm, DataType::Recon, clippedReconCenterlineFWHM);
 
-	//std::cout << "clipperDoS" << std::endl;
-	//clipperDoS->GetOutput()->Print(std::cout);
+	// check clipped centerline ok
+	if (clippedReconCenterlineFWHM->GetNumberOfPoints() != 0)
+	{
+		//vtkDataArray* abscissasClipped = clippedReconCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
+		//if (abscissasClipped != nullptr && abscissasClipped->GetNumberOfTuples() > 0)
+		//{
+		//	double ntnLength = abscissasClipped->GetRange()[1] - abscissasClipped->GetRange()[0];
+		//	ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
+		//}
 
-	//vtkPolyData* fwhmCenterline = clipperDoS->GetOutput();
-	//vtkDataArray* abscissasFwhm = fwhmCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str());
-	//if (abscissasFwhm != nullptr && abscissasFwhm->GetNumberOfTuples() > 0)
-	//{
-	//	double fwhmLength = abscissasFwhm->GetRange()[1] - abscissasFwhm->GetRange()[0];
-	//	ui->labelLesionLengthFWHM->setText(QString::number(fwhmLength, 'f', 3));
-	//}
-	//// ===================== clip the fwhm section =====================
+		//m_io->SetReconstructedCenterline(clippedReconCenterlineFWHM);
 
+		// ======================== clip FWHM recon surface  ========================
+		std::cout << "clipping FWHM recon surface" << std::endl;
+		this->clipSurface(m_io->GetReconstructedSurface(), clippedReconCenterlineFWHM, DataType::Recon, clippedReconSurfaceFWHM);
 
-	//std::cout << "Computing FWHM enlarged radius" << std::endl;
-	//vtkSmartPointer<vtkArrayCalculator> calFwhm = vtkSmartPointer<vtkArrayCalculator>::New();
-	//calFwhm->SetInputData(clipperDoS->GetOutput());
-	//calFwhm->AddScalarArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
-	//char bufferFwhm[999];
-	//sprintf(bufferFwhm, "%s * %f", m_preferences->GetRadiusArrayName().toStdString(), 1.5);
-	//calFwhm->SetFunction(bufferFwhm);
-	//calFwhm->SetResultArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
-	//calFwhm->Update();
-	//std::cout << "Computing FWHM enlarged radius complete" << std::endl;
-	//vtkPolyData* centerlineEnlargedRadiusFwhm = (vtkPolyData*)calFwhm->GetOutput();
+		// check clipped centerline ok
+		if (clippedReconSurfaceFWHM->GetNumberOfPoints() != 0)
+		{
+			//m_io->SetReconstructedSurface(clippedReconSurfaceFWHM);
 
-	//centerlineEnlargedRadiusFwhm->Print(std::cout);
+			// compute original NTN features
+			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
+			capperSurface->SetInputData(clippedReconSurfaceFWHM);
+			capperSurface->Update();
 
-	//// create implict function with spheres along clipped centerline
-	//vtkSmartPointer<vtkvmtkPolyBallLine> tubeFunctionFwhm = vtkSmartPointer<vtkvmtkPolyBallLine>::New();
-	//tubeFunctionFwhm->SetInput(centerlineEnlargedRadiusFwhm);
-	//tubeFunctionFwhm->SetPolyBallRadiusArrayName(m_preferences->GetRadiusArrayName().toStdString().c_str());
+			vtkSmartPointer<vtkMassProperties> massSurface = vtkSmartPointer<vtkMassProperties>::New();
+			massSurface->SetInputData(capperSurface->GetOutput());
+			massSurface->Update();
+			ui->labelReconLumenalVolumeFWHM->setText(QString::number(massSurface->GetVolume(), 'f', 3));
+		}
+	}
 
-	//vtkNew<vtkImplicitBoolean> endSpheresFunctionFwhm;
-	//endSpheresFunctionFwhm->SetOperationTypeToUnion();
+	if (ui->labelLesionLengthFWHM->text() != "N/A" && ui->labelReconLumenalVolumeFWHM->text() != "N/A")
+	{
+		double plaqueVol = ui->labelReconLumenalVolumeFWHM->text().toDouble() - ui->labelLesionLumenalVolumeFWHM->text().toDouble();
+		double volRatio = plaqueVol / ui->labelReconLumenalVolumeFWHM->text().toDouble()*100.0;
+		ui->labelLumenalVolDeltaFWHM->setText(QString::number(plaqueVol, 'f', 3));
+		ui->labelVolumeRatioFWHM->setText(QString::number(volRatio, 'f', 3));
 
-	//vtkDataArray* centerlineIdsFwhm = centerlineEnlargedRadiusFwhm->GetCellData()->GetArray(m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
+		vtkDataArray* abscissasReconClipped = clippedReconCenterlineFWHM->GetPointData()->GetArray(m_preferences->GetReconAbscissasArrayName().toStdString().c_str());
 
-	//centerlineIdsFwhm->Print(std::cout);
+		if (abscissasReconClipped != nullptr && abscissasReconClipped->GetNumberOfTuples() > 0)
+		{
+			double fwhmReconLength = abscissasReconClipped->GetRange()[1] - abscissasReconClipped->GetRange()[0];
+			std::cout << "FWHM reconstructed lesion length: " << fwhmReconLength << "mm" << std::endl;
+			double volRatioPerUnitLength = volRatio / fwhmReconLength;
+			double adjVolRatio = volRatio*fwhmReconLength;
+			ui->labelVolumeRatioPerUnitLengthFWHM->setText(QString::number(volRatioPerUnitLength, 'f', 3));
+			ui->labelAdjustedVolumeRatioFWHM->setText(QString::number(adjVolRatio, 'f', 3));
+		}
+	}
 
-	//for (int i = centerlineIdsFwhm->GetRange()[0]; i <= centerlineIdsFwhm->GetRange()[1]; i++)
-	//{
-	//	// threshold to get independent centerline
-	//	vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
-	//	threshold->ThresholdBetween(i, i);
-	//	threshold->SetInputData(centerlineEnlargedRadiusFwhm);
-	//	threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
-	//	threshold->Update();
+	if (ui->labelLesionLengthNTN->text() != "N/A" && ui->labelLesionLengthFWHM->text() != "N/A")
+	{
+		double distanceFactor = ui->labelLesionLengthFWHM->text().toDouble() / ui->labelLesionLengthNTN->text().toDouble();
 
-	//	if (threshold->GetOutput()->GetNumberOfPoints() == 0)
-	//		continue;
+		ui->labelDistanceFactor->setText(QString::number(distanceFactor, 'f', 3));
+	}
 
-	//	vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-	//	geomFilter->SetInputData(threshold->GetOutput());
-	//	geomFilter->Update();
+	// compute distance between surfaces
+	if (clippedSurface->GetNumberOfPoints() != 0 && clippedReconSurface->GetNumberOfPoints() != 0)
+	{
+		vtkSmartPointer<vtkHausdorffDistancePointSetFilter> hausdorffDistanceFilter = vtkSmartPointer<vtkHausdorffDistancePointSetFilter>::New();
+		hausdorffDistanceFilter->SetInputData(0, clippedSurface);
+		hausdorffDistanceFilter->SetInputData(1, clippedReconSurface);
+		hausdorffDistanceFilter->Update();
+		
+		ui->labelHausdorffDistanceReconToLesion->setText(QString::number(hausdorffDistanceFilter->GetHausdorffDistance(), 'f', 3));
+		ui->labelRelativeDistanceLesionToRecon->setText(QString::number(hausdorffDistanceFilter->GetRelativeDistance()[0], 'f', 3));
+		ui->labellabelRelativeDistanceReconToLesion->setText(QString::number(hausdorffDistanceFilter->GetRelativeDistance()[1], 'f', 3));
+	}
 
-	//	vtkPolyData* singleCenterline = geomFilter->GetOutput();
+	// compute point data value
+	QString pointDataArrayName = ui->comboBoxPointDataArray->currentText();
+	vtkDataArray* abscissasArray  = clippedCenterline->GetPointData()->GetArray(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+	vtkDataArray* pointDataArray = clippedCenterline->GetPointData()->GetArray(pointDataArrayName.toStdString().c_str());
+	if (pointDataArray != nullptr)
+	{
+		ui->labelPointDataMaximum->setText(QString::number(pointDataArray->GetRange()[1], 'f', 3));
+		ui->labelPointDataMinimum->setText(QString::number(pointDataArray->GetRange()[0], 'f', 3));
 
-	//	std::cout << "centerlineid: " << i << std::endl;
-	//	singleCenterline->Print(std::cout);
+		if (abscissasArray != nullptr)
+		{
+			// derivative
+			QVector<double> x;
+			QVector<double> y;
+			QVector<double> y_grad;
 
-	//	singleCenterline->GetPointData()->SetActiveScalars(m_preferences->GetAbscissasArrayName().toStdString().c_str());
+			for (int i = 0; i < clippedCenterline->GetNumberOfPoints(); i++)
+			{
+				x.append(abscissasArray->GetTuple(i)[0]);
+				if (pointDataArray->GetNumberOfComponents() == 3)
+				{
+					y.append(sqrt(
+						std::pow(pointDataArray->GetTuple(i)[0], 2) +
+						std::pow(pointDataArray->GetTuple(i)[1], 2) +
+						std::pow(pointDataArray->GetTuple(i)[2], 2)));
+				}
+				else
+				{
+					y.append(pointDataArray->GetTuple(i)[0]);
+				}
+			}
 
-	//	// get the end points
-	//	double* center0 = singleCenterline->GetPoint(0);
-	//	double tangent0[3];
-	//	tangent0[0] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 0);
-	//	tangent0[1] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 1);
-	//	tangent0[2] = singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(0, 2);
-	//	double radius0 = singleCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(0, 0);
+			for (int i = 1; i < y.length() - 1; i++)
+			{
+				y_grad.append((y[i + 1] - y[i - 1]) / 2);
+			}
 
-	//	vtkNew<vtkSphere> sphere0;
-	//	sphere0->SetCenter(center0[0], center0[1], center0[2]);
-	//	sphere0->SetRadius(radius0*1.5);
+			double gradMax = *std::max_element(y_grad.constBegin(), y_grad.constEnd());
+			double gradMin = *std::min_element(y_grad.constBegin(), y_grad.constEnd());
 
-	//	vtkNew<vtkPlane> plane0;
-	//	plane0->SetOrigin(center0[0], center0[1], center0[2]);
-	//	plane0->SetNormal(1.0*tangent0[0], 1.0*tangent0[1], 1.0*tangent0[2]);
+			ui->labelPointDataGradientMaximum->setText(QString::number(gradMax, 'f', 3));
+			ui->labelPointDataGradientMinimum->setText(QString::number(gradMin, 'f', 3));
+		}
+	}
 
-	//	vtkNew<vtkImplicitBoolean> compositeFunction0;
-	//	compositeFunction0->AddFunction(sphere0);
-	//	compositeFunction0->AddFunction(plane0);
-	//	compositeFunction0->SetOperationTypeToIntersection();
-
-	//	double* center1 = singleCenterline->GetPoint(singleCenterline->GetNumberOfPoints() - 1);
-	//	double tangent1[3];
-	//	// reverse tangent direction
-	//	tangent1[0] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 0);
-	//	tangent1[1] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 1);
-	//	tangent1[2] = -1.0*singleCenterline->GetPointData()->GetArray(m_preferences->GetFrenetTangentArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 2);
-	//	double radius1 = singleCenterline->GetPointData()->GetArray(m_preferences->GetRadiusArrayName().toStdString().c_str())->GetComponent(singleCenterline->GetNumberOfPoints() - 1, 0);
-
-	//	vtkNew<vtkSphere> sphere1;
-	//	sphere1->SetCenter(center1[0], center1[1], center1[2]);
-	//	sphere1->SetRadius(radius1*1.5);
-
-	//	vtkNew<vtkPlane> plane1;
-	//	plane1->SetOrigin(center1[0], center1[1], center1[2]);
-	//	plane1->SetNormal(1.0*tangent1[0], 1.0*tangent1[1], 1.0*tangent1[2]);
-
-	//	vtkNew<vtkImplicitBoolean> compositeFunction1;
-	//	compositeFunction1->AddFunction(sphere1);
-	//	compositeFunction1->AddFunction(plane1);
-	//	compositeFunction1->SetOperationTypeToIntersection();
-
-	//	// add to overall composite function
-	//	endSpheresFunctionFwhm->AddFunction(compositeFunction0);
-	//	endSpheresFunctionFwhm->AddFunction(compositeFunction1);
-	//}
-
-	//vtkNew<vtkImplicitBoolean> compositeFunctionFwhm;
-	//compositeFunctionFwhm->AddFunction(tubeFunctionFwhm);
-	//compositeFunctionFwhm->AddFunction(endSpheresFunctionFwhm);
-	//compositeFunctionFwhm->SetOperationTypeToDifference();
-
-	//// create mask array with spheres and centerline tubes
-	//vtkSmartPointer<vtkDoubleArray> maskArrayFwhm = vtkSmartPointer<vtkDoubleArray>::New();
-	//maskArrayFwhm->SetNumberOfComponents(1);
-	//maskArrayFwhm->SetNumberOfTuples(m_io->GetSurface()->GetNumberOfPoints());
-	//maskArrayFwhm->SetName("Mask");
-	//maskArrayFwhm->FillComponent(0, 0);
-
-	//std::cout << "evaluating FWHM surface file..." << std::endl;
-
-	//compositeFunctionFwhm->EvaluateFunction(m_io->GetSurface()->GetPoints()->GetData(), maskArrayFwhm);
-
-	//m_io->GetSurface()->GetPointData()->AddArray(maskArrayFwhm);
-	//m_io->GetSurface()->GetPointData()->SetActiveScalars("Mask");
-
-	//vtkSmartPointer<vtkClipPolyData> clipperFwhmS = vtkSmartPointer<vtkClipPolyData>::New();
-	//clipperFwhmS->SetValue(0);
-	//clipperFwhmS->SetInsideOut(true);
-	//clipperFwhmS->GenerateClippedOutputOff();
-	//clipperFwhmS->SetInputData(m_io->GetSurface());
-	//clipperFwhmS->Update();
-
-	//vtkSmartPointer<vtkCleanPolyData> cleanerFwhmS = vtkSmartPointer<vtkCleanPolyData>::New();
-	//cleanerFwhmS->SetInputData(clipperFwhmS->GetOutput());
-	//cleanerFwhmS->Update();
-
-	//////vtkSmartPointer<vtkGeometryFilter> geomFilter = vtkSmartPointer<vtkGeometryFilter>::New();
-	//////geomFilter->SetInputData(clipperV->GetOutput());
-	//////geomFilter->Update();
-
-	//vtkSmartPointer<vtkvmtkCapPolyData> capperSurfaceFwhm = vtkSmartPointer<vtkvmtkCapPolyData>::New();
-	//capperSurfaceFwhm->SetInputData(cleanerFwhmS->GetOutput());
-	//capperSurfaceFwhm->Update();
-
-	//vtkSmartPointer<vtkMassProperties> massSurfaceFwhm = vtkSmartPointer<vtkMassProperties>::New();
-	//massSurfaceFwhm->SetInputData(capperSurfaceFwhm->GetOutput());
-	//massSurfaceFwhm->Update();
-	//ui->labelLesionLumenalVolumeFWHM->setText(QString::number(massSurfaceFwhm->GetVolume(), 'f', 3));
-
-	//vtkPolyData* clippedSurfaceFwhm = cleanerFwhmS->GetOutput();
-	//m_io->SetSurface(clippedSurfaceFwhm);
 
 }
 

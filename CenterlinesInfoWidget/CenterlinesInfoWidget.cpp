@@ -33,6 +33,7 @@ CenterlinesInfoWidget::CenterlinesInfoWidget(QWidget *parent) :
 	connect(ui->comboBoxCenterlineIds, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
 	connect(ui->comboBoxAbscissasArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
 	connect(ui->comboBoxYArray, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CenterlinesInfoWidget::UpdatePlot);
+
 	connect(ui->checkBoxRaw, &QCheckBox::stateChanged, this, &CenterlinesInfoWidget::UpdatePlot);
 	connect(ui->checkBoxDerivative1, &QCheckBox::stateChanged, this, &CenterlinesInfoWidget::UpdatePlot);
 	connect(ui->checkBoxDerivative2, &QCheckBox::stateChanged, this, &CenterlinesInfoWidget::UpdatePlot);
