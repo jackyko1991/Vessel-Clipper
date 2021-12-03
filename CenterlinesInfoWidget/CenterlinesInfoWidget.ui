@@ -198,6 +198,9 @@
         <layout class="QHBoxLayout" name="horizontalLayout_6">
          <item>
           <widget class="QPushButton" name="pushButtonAutoLocateStenosis">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>Auto Locate Stenosis</string>
            </property>
@@ -230,6 +233,9 @@
         <layout class="QHBoxLayout" name="horizontalLayout_7">
          <item>
           <widget class="QPushButton" name="pushButtonManualLocateStenosis">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>Manual Locate Stenosis</string>
            </property>
