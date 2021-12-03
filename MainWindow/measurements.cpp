@@ -111,8 +111,6 @@ void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataTy
 	std::cout << "proximal point: " << proximalPt[0] << ", " << proximalPt[1] << ", " << proximalPt[2] << std::endl;
 	std::cout << "distal point: " << distalPt[0] << ", " << distalPt[1] << ", " << distalPt[2] << std::endl;
 
-	std::cout << "datatype: " << dataType << std::endl;
-
 	vtkPolyData* centerline;
 	
 	switch (dataType)

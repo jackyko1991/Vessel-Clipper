@@ -16,6 +16,11 @@
 #include "ui_CenterlinesInfoWidget.h"
 #include "qcustomplot.h"
 #include <QComboBox>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QByteArray>
 
 #include <limits>
 
@@ -41,6 +46,9 @@ CenterlinesInfoWidget::CenterlinesInfoWidget(QWidget *parent) :
 	connect(ui->pushButtonManualLocateStenosis, &QPushButton::clicked, this, &CenterlinesInfoWidget::SetStenosisPoint);
 	connect(ui->pushButtonManualLocateProximalNormal, &QPushButton::clicked, this, &CenterlinesInfoWidget::SetProximalNormalPoint);
 	connect(ui->pushButtonManualLocateDistalNormal, &QPushButton::clicked, this, &CenterlinesInfoWidget::SetDistalNormalPoint);
+
+	connect(ui->pushButtonSaveCenterlineFeatures, &QPushButton::clicked, this, &CenterlinesInfoWidget::SaveCenterlineFeatures);
+	connect(ui->pushButtonLoadCenterlineFeatures, &QPushButton::clicked, this, &CenterlinesInfoWidget::LoadCenterlineFeatures);
 }
 
 CenterlinesInfoWidget::~CenterlinesInfoWidget()
@@ -183,6 +191,70 @@ void CenterlinesInfoWidget::SetAbscissasArray(QString abscissasArrayName)
 {
 	int idx = ui->comboBoxAbscissasArray->findText(abscissasArrayName);
 	ui->comboBoxAbscissasArray->setCurrentIndex(idx);
+}
+
+void CenterlinesInfoWidget::SaveCenterlineFeatures()
+{
+	// select save location
+	QString fileName = QFileDialog::getSaveFileName(this, tr("Save Centerline Features File"),
+		"./",
+		tr("JSON (*.json)"));
+
+	if (fileName == "")
+		return;
+
+	QJsonObject centerlineFeatures;
+	QJsonArray proximalNormalPoint;
+	std::copy(m_proximalNormalPoint.begin(), m_proximalNormalPoint.end(), std::back_inserter(proximalNormalPoint));
+	QJsonArray distalNormalPoint;
+	std::copy(m_distalNormalPoint.begin(), m_distalNormalPoint.end(), std::back_inserter(distalNormalPoint));
+	QJsonArray stenosislPoint;
+	std::copy(m_stenosisPoint.begin(), m_stenosisPoint.end(), std::back_inserter(stenosislPoint));
+
+	centerlineFeatures.insert("ProximalNormalPoint", proximalNormalPoint);
+	centerlineFeatures.insert("DistalNormalPoint", distalNormalPoint);
+	centerlineFeatures.insert("StenosislPoint", stenosislPoint);
+
+	QJsonDocument doc;
+	doc.setObject(centerlineFeatures);
+	QByteArray bytes = doc.toJson(QJsonDocument::Indented);
+	QFile file(fileName);
+	if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+	{
+		QTextStream iStream(&file);
+		iStream.setCodec("utf-8");
+		iStream << bytes;
+		file.close();
+	}
+	else
+	{
+		cout << "file open failed: " << fileName.toStdString() << endl;
+	}
+}
+
+void CenterlinesInfoWidget::LoadCenterlineFeatures()
+{
+	QString fileName = QFileDialog::getOpenFileName(this, tr("Open Centerline Features File"),
+		"./",
+		tr("JSON (*.json)"));
+
+	QFile jsonFile(fileName);
+	jsonFile.open(QFile::ReadOnly);
+
+	QJsonObject centerlineFeatures = QJsonDocument().fromJson(jsonFile.readAll()).object();
+
+	m_stenosisPoint.clear();
+	m_proximalNormalPoint.clear();
+	m_distalNormalPoint.clear();
+
+	for (int i = 0; i < 3; i++)
+	{
+		m_proximalNormalPoint.push_back(centerlineFeatures["ProximalNormalPoint"].toArray()[i].toDouble());
+		m_distalNormalPoint.push_back(centerlineFeatures["DistalNormalPoint"].toArray()[i].toDouble());
+		m_stenosisPoint.push_back(centerlineFeatures["StenosislPoint"].toArray()[i].toDouble());
+	}
+
+	this->UpdatePlot();
 }
 
 void CenterlinesInfoWidget::updateCenterlineIdsComboBox()

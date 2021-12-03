@@ -31,6 +31,8 @@ public slots:
 	QVector<double> GetDistalNormalPoint();
 	void SetCenterlineIdsArray(QString);
 	void SetAbscissasArray(QString);
+	void SaveCenterlineFeatures();
+	void LoadCenterlineFeatures();
 
 private slots :
 	void updateCenterlineIdsComboBox();
