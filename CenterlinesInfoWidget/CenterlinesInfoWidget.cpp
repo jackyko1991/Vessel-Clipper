@@ -197,7 +197,7 @@ void CenterlinesInfoWidget::SaveCenterlineFeatures()
 {
 	// select save location
 	QString fileName = QFileDialog::getSaveFileName(this, tr("Save Centerline Features File"),
-		"./",
+		"./centerline_features.json",
 		tr("JSON (*.json)"));
 
 	if (fileName == "")

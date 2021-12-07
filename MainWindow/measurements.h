@@ -37,6 +37,7 @@ public:
 public slots:
 	void slotUpdate();
 	void slotClose();
+	void slotSave();
 	void slotCenterlineConfigUpdate();
 	void slotUpdatePointDataArray();
 	//void slotReconAddAll();

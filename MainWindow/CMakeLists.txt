@@ -38,6 +38,19 @@ include_directories(${Core_SOURCE_DIR})
 include_directories(${CenterlinesInfoWidget_SOURCE_DIR})
 include_directories(${Branch_SOURCE_DIR})
 
+# Third party dependency
+include(FetchContent)
+FetchContent_Declare(
+  rapidcsv
+  GIT_REPOSITORY "https://github.com/d99kris/rapidcsv.git"
+  GIT_TAG        "v8.50"
+)
+if(NOT rapidcsv_POPULATED)
+  FetchContent_Populate(rapidcsv)
+  include_directories(${rapidcsv_SOURCE_DIR}/src)
+endif()
+
+
 # Finding needed source files.
 file(
 	GLOB
@@ -92,7 +105,6 @@ target_link_libraries(
 	Core
 	CenterlinesInfoWidget
 	Branch
-	# Measurements
 	${VTK_LIBRARIES}
 	${VMTK_LIBRARIES}
 )
