@@ -197,7 +197,7 @@ void CenterlinesInfoWidget::SaveCenterlineFeatures()
 {
 	// select save location
 	QString fileName = QFileDialog::getSaveFileName(this, tr("Save Centerline Features File"),
-		"./",
+		"./centerline_features.json",
 		tr("JSON (*.json)"));
 
 	if (fileName == "")
@@ -269,7 +269,7 @@ void CenterlinesInfoWidget::updateCenterlineIdsComboBox()
 	ui->comboBoxCenterlineIds->addItem("All");
 
 	for (int i = m_centerlines->GetCellData()->GetArray(ui->comboBoxCenterlineIdsArray->currentIndex())->GetRange()[0];
-		i < m_centerlines->GetCellData()->GetArray(ui->comboBoxCenterlineIdsArray->currentIndex())->GetRange()[1];
+		i <= m_centerlines->GetCellData()->GetArray(ui->comboBoxCenterlineIdsArray->currentIndex())->GetRange()[1];
 		i++)
 	{
 		ui->comboBoxCenterlineIds->addItem(QString::number(i));

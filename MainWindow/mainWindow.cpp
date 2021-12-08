@@ -584,6 +584,7 @@ void MainWindow::slotResetSurface()
 void MainWindow::slotResetCenterline()
 {
 	m_io->SetCenterline(m_io->GetOriginalCenterline());
+	m_preferences->slotUpdateArrays();
 	this->updateCenterlinesInfoWidget();
 	this->renderFirstBifurcationPoint();
 	m_preferences->slotUpdateArrays();
@@ -936,6 +937,7 @@ void MainWindow::slotReconClip()
 
 	this->ui->checkBoxCenterlineVisisble->setChecked(false);
 	this->renderReconCenterline();
+	m_preferences->slotUpdateArrays();
 
 	m_statusLabel->setText("Clipping centerline complete");
 	m_statusProgressBar->setValue(50);
@@ -3489,6 +3491,7 @@ void MainWindow::readCenterlineFileComplete()
 	if (!m_ioWatcher->future().result())
 	{
 		m_statusLabel->setText("Loading centerline file complete");
+		ui->checkBoxCenterlineVisisble->setChecked(true);
 		this->renderCenterline();
 		this->updateCenterlinesInfoWidget();
 		this->renderFirstBifurcationPoint();
@@ -3541,6 +3544,7 @@ void MainWindow::readReconCenterlineComplete()
 	if (!m_ioWatcher->future().result())
 	{
 		m_statusLabel->setText("Loading reconstructed centerline file complete");
+		ui->checkBoxReconCenterlineVisisble->setChecked(true);
 		this->renderReconCenterline();
 		//this->updateCenterlinesInfoWidget();
 		m_preferences->slotUpdateArrays();

@@ -3,6 +3,7 @@
 
 // qt
 #include <QMessageBox>
+#include <QFileDialog>
 
 // vtk
 #include "vtkPolyData.h"
@@ -32,6 +33,7 @@
 #include "io.h"
 #include "preferences.h"
 #include "CenterlinesInfoWidget.h"
+#include <rapidcsv.h>
 
 Measurements::Measurements(QWidget *parent) :
 	QWidget(parent),
@@ -42,6 +44,7 @@ Measurements::Measurements(QWidget *parent) :
 	// connections
 	connect(ui->pushButtonUpdate, &QPushButton::clicked, this, &Measurements::slotUpdate);
 	connect(ui->pushButtonClose, &QPushButton::clicked, this, &Measurements::slotClose);
+	connect(ui->pushButtonSave, &QPushButton::clicked, this, &Measurements::slotSave);
 	//connect(ui->pushButtonAddAllRecon, &QPushButton::clicked, this, &Measurements::slotReconAddAll);
 	//connect(ui->pushButtonAddRecon, &QPushButton::clicked, this, &Measurements::slotReconAddCurrent);
 	//connect(ui->pushButtonRemoveAllRecon, &QPushButton::clicked, this, &Measurements::slotReconRemoveAll);
@@ -50,7 +53,6 @@ Measurements::Measurements(QWidget *parent) :
 
 Measurements::~Measurements()
 {
-
 }
 
 void Measurements::SetPreference(Preferences *preferences)
@@ -72,6 +74,117 @@ void Measurements::SetCenterlinesInfoWidget(CenterlinesInfoWidget *centerlinesIn
 void Measurements::slotClose()
 {
 	this->close();
+}
+
+void Measurements::slotSave()
+{
+	rapidcsv::Document doc;
+
+	// Normal to normal
+	std::vector<std::string> hdr;
+	hdr.push_back(std::string("lesion length NTN"));
+	hdr.push_back(std::string("lesion lumenal volume NTN"));
+	hdr.push_back(std::string("reconstructed lumenal volume NTN"));
+	hdr.push_back(std::string("plaque volume NTN"));
+	hdr.push_back(std::string("volume ratio NTN"));
+	hdr.push_back(std::string("volume ratio per unit length NTN"));
+	hdr.push_back(std::string("adjusted volume ratio NTN"));
+	hdr.push_back(std::string("lesion length FWHM"));
+	hdr.push_back(std::string("lesion lumenal volume FWHM"));
+	hdr.push_back(std::string("reconstructed lumenal volume FWHM"));
+	hdr.push_back(std::string("plaque volume FWHM"));
+	hdr.push_back(std::string("volume ratio FWHM"));
+	hdr.push_back(std::string("volume ratio per unit length FWHM"));
+	hdr.push_back(std::string("adjusted volume ratio FWHM"));
+	hdr.push_back(std::string("stenosis radius"));
+	hdr.push_back(std::string("proximal normal radius"));
+	hdr.push_back(std::string("distal normal radius"));
+	hdr.push_back(std::string("degree of stenosis"));
+	hdr.push_back(std::string("distance factor"));
+	hdr.push_back(std::string("hausdorff distance"));
+	hdr.push_back(std::string("relative distance(lesion to recon)"));
+	hdr.push_back(std::string("relative distance(recon to lesion)"));
+	if (ui->comboBoxPointDataArray->currentText() != "")
+	{
+		hdr.push_back(std::string("maximum " + ui->comboBoxPointDataArray->currentText().toStdString()));
+		hdr.push_back(std::string("minimum " + ui->comboBoxPointDataArray->currentText().toStdString()));
+		hdr.push_back(std::string("maximum " + ui->comboBoxPointDataArray->currentText().toStdString() + " gradient"));
+		hdr.push_back(std::string("minimum " + ui->comboBoxPointDataArray->currentText().toStdString() + " gradient"));
+	}
+
+	for (int i =0 ; i< hdr.size(); i++)
+	{
+		doc.SetColumnName(i,hdr.at(i));
+	}
+
+	std::vector<std::string> values;
+	
+	// NTN
+	values.push_back(ui->labelLesionLengthNTN->text().toStdString());
+	values.push_back(ui->labelLesionLumenalVolumeNTN->text().toStdString());
+	values.push_back(ui->labelReconLumenalVolumeNTN->text().toStdString());
+	values.push_back(ui->labelLumenalVolDeltaNTN->text().toStdString());
+	values.push_back(ui->labelVolumeRatioNTN->text().toStdString());
+	values.push_back(ui->labelVolumeRatioPerUnitLengthNTN->text().toStdString());
+	values.push_back(ui->labelAdjustedVolumeRatioNTN->text().toStdString());
+
+	// FWHM
+	values.push_back(ui->labelLesionLengthFWHM->text().toStdString());
+	values.push_back(ui->labelLesionLumenalVolumeFWHM->text().toStdString());
+	values.push_back(ui->labelReconLumenalVolumeFWHM->text().toStdString());
+	values.push_back(ui->labelLumenalVolDeltaFWHM->text().toStdString());
+	values.push_back(ui->labelVolumeRatioFWHM->text().toStdString());
+	values.push_back(ui->labelVolumeRatioPerUnitLengthFWHM->text().toStdString());
+	values.push_back(ui->labelAdjustedVolumeRatioFWHM->text().toStdString());
+
+	// Morphological
+	values.push_back(ui->labelStenosisRadius->text().toStdString());
+	values.push_back(ui->labelProximalNormalRadius->text().toStdString());
+	values.push_back(ui->labelDistalNormalRadius->text().toStdString());
+	values.push_back(ui->labelDoSNascet->text().toStdString());
+	values.push_back(ui->labelDistanceFactor->text().toStdString());
+	values.push_back(ui->labelHausdorffDistanceReconToLesion->text().toStdString());
+	values.push_back(ui->labelRelativeDistanceLesionToRecon->text().toStdString());
+	values.push_back(ui->labellabelRelativeDistanceReconToLesion->text().toStdString());
+
+	// Point data array
+	if (ui->comboBoxPointDataArray->currentText() != "")
+	{
+		values.push_back(ui->labelPointDataMaximum->text().toStdString());
+		values.push_back(ui->labelPointDataMinimum->text().toStdString());
+		values.push_back(ui->labelPointDataGradientMaximum->text().toStdString());
+		values.push_back(ui->labelPointDataGradientMinimum->text().toStdString());
+	}
+
+	doc.InsertRow(doc.GetRowCount(), values);
+
+	if (doc.GetRowCount() > 0)
+	{
+		QString fileName = QFileDialog::getSaveFileName(this, tr("Save File"),
+			"./measurements.csv",
+			tr("Comma-separated Values (*.csv)"));
+
+		if (fileName == "")
+			return;
+		std::cout << fileName.toStdString() << std::endl;
+
+		QFile saveFile(fileName);
+		auto fp = fopen(fileName.toStdString().c_str(),"w");
+
+		if (fp == NULL)
+		{
+			QMessageBox msgBox;
+			msgBox.setText("Target save location is opening by other process.\nClose the file and save again");
+			msgBox.exec();
+			return;
+		}
+		else
+		{
+			doc.Save(fileName.toStdString());
+		}
+
+		fclose(fp);
+	}
 }
 
 void Measurements::slotCenterlineConfigUpdate()
