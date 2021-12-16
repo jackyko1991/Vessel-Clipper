@@ -361,7 +361,7 @@ void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataTy
 
 	for (int i = centerlineIds->GetRange()[0]; i <= centerlineIds->GetRange()[1]; i++)
 	{
-		//std::cout << "centerlineid: " << i << std::endl;
+		std::cout << "centerlineid: " << i << std::endl;
 
 		// threshold to get independent centerline
 		vtkSmartPointer<vtkThreshold> threshold = vtkSmartPointer<vtkThreshold>::New();
@@ -370,16 +370,16 @@ void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataTy
 		threshold->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, m_preferences->GetCenterlineIdsArrayName().toStdString().c_str());
 		threshold->Update();
 
-		//std::cout << "threshold centerline" << std::endl;
-		//threshold->GetOutput()->Print(std::cout);
+		std::cout << "threshold centerline" << std::endl;
+		threshold->GetOutput()->Print(std::cout);
 
 		// convert threshold output to vtkpolydata
 		vtkSmartPointer<vtkGeometryFilter> geometryFilter = vtkSmartPointer<vtkGeometryFilter>::New();
 		geometryFilter->SetInputData(threshold->GetOutput());
 		geometryFilter->Update();
 
-		//std::cout << "threshold centerline with geometry" << std::endl;
-		//geometryFilter->GetOutput()->Print(std::cout);
+		std::cout << "threshold centerline with geometry" << std::endl;
+		geometryFilter->GetOutput()->Print(std::cout);
 
 		if (geometryFilter->GetOutput()->GetNumberOfPoints() == 0)
 			continue;
@@ -413,6 +413,9 @@ void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataTy
 
 		//clipper2->GetOutput()->Print(std::cout);
 
+		if (clipper2->GetOutput()->GetNumberOfPoints() == 0)
+			continue;
+
 		// check if single centerline is close to distal point
 		double epsilon = 1e0;
 		double distalPointDistance = sqrt(vtkMath::Distance2BetweenPoints(clipper2->GetOutput()->GetPoint(clipper2->GetOutput()->GetNumberOfPoints() - 1), distalPt));
@@ -434,6 +437,8 @@ void Measurements::clipCenterline(double * proximalPt, double * distalPt, DataTy
 
 		appendFilter->AddInputData(clipper2->GetOutput());
 	}
+
+	std::cout << "clip centerline complete" << std::endl;
 
 	appendFilter->Update();
 	//appendFilter->GetOutput()->Print(std::cout);
@@ -470,7 +475,7 @@ void Measurements::clipSurface(vtkPolyData * surface, vtkPolyData *clippedCenter
 	}
 	cal->AddScalarArrayName(radiusArrayName.toStdString().c_str());
 	char buffer[999];
-	sprintf(buffer, "%s * %f", radiusArrayName.toStdString(), 1.5);
+	sprintf(buffer, "%s * %f", radiusArrayName.toStdString(), 2.5);
 	cal->SetFunction(buffer);
 	cal->SetResultArrayName(radiusArrayName.toStdString().c_str());
 	cal->Update();
@@ -698,7 +703,10 @@ void Measurements::slotUpdate()
 			ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
 		}
 
-		//m_io->SetCenterline(clippedCenterline);
+		if (m_replaceNTNData)
+		{
+			m_io->SetCenterline(clippedCenterline);
+		}
 
 		// ======================== clip NTN surface  ========================
 		std::cout << "clipping NTN surface" << std::endl;
@@ -707,7 +715,10 @@ void Measurements::slotUpdate()
 		// check clipped centerline ok
 		if (clippedSurface->GetNumberOfPoints() != 0)
 		{
-			//m_io->SetSurface(clippedSurface);
+			if (m_replaceNTNData)
+			{
+				m_io->SetSurface(clippedSurface);
+			}
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
@@ -738,7 +749,10 @@ void Measurements::slotUpdate()
 		//	ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
 		//}
 
-		//m_io->SetReconstructedCenterline(clippedReconCenterline);
+		if (m_replaceNTNData)
+		{
+			m_io->SetReconstructedCenterline(clippedReconCenterline);
+		}
 
 		// ======================== clip NTN recon surface  ========================
 		std::cout << "clipping NTN recon surface" << std::endl;
@@ -747,7 +761,10 @@ void Measurements::slotUpdate()
 		// check clipped centerline ok
 		if (clippedReconSurface->GetNumberOfPoints() != 0)
 		{
-			//m_io->SetReconstructedSurface(clippedReconSurface);
+			if (m_replaceNTNData)
+			{
+				m_io->SetReconstructedSurface(clippedReconSurface);
+			}
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
@@ -845,7 +862,10 @@ void Measurements::slotUpdate()
 			ui->labelLesionLengthFWHM->setText(QString::number(fwhmLength, 'f', 3));
 		}
 
-		//m_io->SetCenterline(clippedCenterlineFWHM);
+		if (m_replaceFWHMData)
+		{
+			m_io->SetCenterline(clippedCenterlineFWHM);
+		}
 
 		// ======================== clip FWHM surface  ========================
 		std::cout << "clipping FWHM surface" << std::endl;
@@ -854,7 +874,10 @@ void Measurements::slotUpdate()
 		// check clipped centerline ok
 		if (clippedSurfaceFWHM->GetNumberOfPoints() != 0)
 		{
-			//m_io->SetSurface(clippedSurfaceFWHM);
+			if (m_replaceFWHMData)
+			{
+				m_io->SetSurface(clippedSurfaceFWHM);
+			}
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();
@@ -884,7 +907,10 @@ void Measurements::slotUpdate()
 		//	ui->labelLesionLengthNTN->setText(QString::number(ntnLength, 'f', 3));
 		//}
 
-		//m_io->SetReconstructedCenterline(clippedReconCenterlineFWHM);
+		if (m_replaceFWHMData)
+		{
+			m_io->SetReconstructedCenterline(clippedReconCenterlineFWHM);
+		}
 
 		// ======================== clip FWHM recon surface  ========================
 		std::cout << "clipping FWHM recon surface" << std::endl;
@@ -893,7 +919,10 @@ void Measurements::slotUpdate()
 		// check clipped centerline ok
 		if (clippedReconSurfaceFWHM->GetNumberOfPoints() != 0)
 		{
-			//m_io->SetReconstructedSurface(clippedReconSurfaceFWHM);
+			if (m_replaceFWHMData)
+			{
+				m_io->SetReconstructedSurface(clippedReconSurfaceFWHM);
+			}
 
 			// compute original NTN features
 			vtkSmartPointer<vtkvmtkCapPolyData> capperSurface = vtkSmartPointer<vtkvmtkCapPolyData>::New();

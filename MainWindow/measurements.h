@@ -53,6 +53,8 @@ private:
 	Preferences* m_preferences = nullptr;
 	CenterlinesInfoWidget* m_centerlinesInfoWidget = nullptr;
 	QString m_currentPointDataArrayName;
+	bool m_replaceNTNData = false;
+	bool m_replaceFWHMData = false;
 
 	void clipCenterline(double* proximalPt, double* distalPt, DataType dataType, vtkPolyData* clippedCenterline);
 	void clipSurface(vtkPolyData* surface, vtkPolyData* clippedCenterline, DataType dataType, vtkPolyData* clippedSurface);
